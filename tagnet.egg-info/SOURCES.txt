@@ -1,0 +1,8 @@
+README.md
+setup.py
+supertagger/__init__.py
+supertagger/train.py
+tagnet.egg-info/PKG-INFO
+tagnet.egg-info/SOURCES.txt
+tagnet.egg-info/dependency_links.txt
+tagnet.egg-info/top_level.txt

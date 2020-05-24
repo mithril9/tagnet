@@ -43,7 +43,6 @@ class LSTMTagger(nn.Module):
         embeds = self.word_embeddings(sentence)
         char_final_hiddens = torch.zeros(len(words), char_hidden_dim, requires_grad=False)
         for i in range(len(words)):
-            # self.char_hidden = (self.char_hidden[0]*0, self.char_hidden[0]*0)
             char_embeds = self.char_embeddings(words[i])
             _, self.char_hidden = self.char_lstm(char_embeds.view(len(words[i]), 1, -1), self.char_hidden)
             char_final_hiddens[i] = self.char_hidden[0]

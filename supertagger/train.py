@@ -11,13 +11,11 @@ import pdb, json
 
 
 def main(data_path):
-    train_iter, val_iter, word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = create_datasets(data_path)
-    batch = next(iter(train_iter))
+    train_dataset, val_dataset, word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = create_datasets(data_path)
+    train_iter = to_iter(train_dataset)
+    val_iter = to_iter(val_dataset)
+    char_to_ix = create_char_ix_mappings(train_dataset)
     pdb.set_trace()
-    with open("dataTuples", 'w') as tuplesFile:
-        json.dump(data, tuplesFile)
-        return
-    word_to_ix, tag_to_ix, char_to_ix = create_ix_mappings(data)
     model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,\
                        len(char_to_ix))
     loss_function = nn.NLLLoss()

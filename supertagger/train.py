@@ -11,15 +11,15 @@ import pdb, json
 
 
 def main(data_path):
-
-    train_words_path = os.path.join(data_path, "train.words")
-    train_tags_path = os.path.join(data_path, "train.tags")
-    data = data_to_tuples(train_words_path, train_tags_path)
+    train_iter, val_iter, word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = create_datasets(data_path)
+    batch = next(iter(train_iter))
+    pdb.set_trace()
     with open("dataTuples", 'w') as tuplesFile:
         json.dump(data, tuplesFile)
         return
     word_to_ix, tag_to_ix, char_to_ix = create_ix_mappings(data)
-    model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, len(char_to_ix))
+    model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,\
+                       len(char_to_ix))
     loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.1)
     torch.autograd.set_detect_anomaly(True)

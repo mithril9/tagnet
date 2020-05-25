@@ -4,30 +4,35 @@ import torch
 from torchtext.data import Field, BucketIterator, TabularDataset
 import pdb
 from typing import List,  Tuple
-from sklearn.model_selection import train_test_split
+#from sklearn.model_selection import train_test_split
 import pandas as pd
+from config import *
 
-def data_to_tuples(word_file_name, tag_file_name):
+def create_datasets(data_path):
     sent_field = Field(lower=True)
     tag_field = Field()
-    raw_sentences = open(word_file_name).readlines()
-    raw_tag_sequences = open(tag_file_name).readlines()
+    data_fields = [('sentences', sent_field), ('tags', tag_field)]
+    for data_set in ["train", "val"]:
+        create_csv(data_path+"/"+data_set)
+    train_dataset, val_dataset = TabularDataset.splits(path=data_path, train='train.csv',
+                                                            validation='val.csv', format='csv',
+                                                            fields=data_fields, skip_header=True)
+    sent_field.build_vocab(train_dataset, val_dataset)
+    tag_field.build_vocab(train_dataset, val_dataset)
+
+    return to_iter(train_dataset), to_iter(val_dataset), sent_field.vocab.stoi, sent_field.vocab.itos, \
+           tag_field.vocab.stoi, tag_field.vocab.itos
+
+def to_iter(dataset):
+    return BucketIterator(dataset, batch_size=batch_size, sort_key=lambda x: len(x.sentences), shuffle=False)
+
+def create_csv(data_path):
+    raw_sentences = open(data_path+".words").readlines()
+    raw_tag_sequences = open(data_path+".tags").readlines()
     raw_data = {'sentences': [sent.strip() for sent in raw_sentences if sent != ''],
                 'tags': [tag_seq.strip() for tag_seq in raw_tag_sequences if tag_seq != '']}
-    #assert len(raw_data['sentences']) == len(raw_data['tags'])
-    #for i in range(len(raw_data['sentences'])):
-        #assert len(raw_data['sentences'][i]) == len(raw_data['tags'][i])
     df = pd.DataFrame(raw_data, columns=["sentences", "tags"])
-    train, val = train_test_split(df, train_size=0.75)
-    train.to_csv("train.csv", index=False)
-    val.to_csv("val.csv", index=False)
-    data_fields = [('sentences', sent_field), ('tags', tag_field)]
-    train, val = TabularDataset.splits(path='./', train='train.csv', validation='val.csv', format='csv',
-                                            fields=data_fields)
-    sent_field.build_vocab(train, val)
-    tag_field.build_vocab(train, val)
-    pdb.set_trace()
-    #return data
+    df.to_csv(data_path+".csv", index=False)
 
 def create_ix_mappings(data: List[Tuple[List, List]]):
     """data is a tuple of 2 lists and looks as follows

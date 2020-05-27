@@ -11,35 +11,30 @@ import pdb, json
 
 
 def main(data_path):
-    train_dataset, val_dataset, word_to_ix, ix_to_word, tag_to_ix, ix_to_tag, char_to_ix = create_datasets(data_path)
-    train_iter = to_iter(train_dataset)
-    val_iter = to_iter(val_dataset)
-    char_to_ix = create_char_ix_mappings(train_dataset)
+    train_iter, val_iter, word_to_ix, ix_to_word, tag_to_ix, ix_to_tag, char_to_ix = create_datasets(data_path)
     model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,\
                        len(char_to_ix))
     loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.1)
     torch.autograd.set_detect_anomaly(True)
-    pdb.set_trace()
     print("training..\n")
     for epoch in range(num_epochs):  # again, normally you would NOT do 300 epochs, it is toy data
         if epoch == 0 or (epoch+1) % 20 == 0:
             print('======== Epoch {} / {} ========'.format(epoch + 1, num_epochs))
-        for sentence, tags in data:
+        for batch in train_iter:
             # Step 1. Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
             model.zero_grad()
-
             # Also, we need to clear out the hidden state of the LSTM,
             # detaching it from its history on the last instance.
             model.hidden = model.init_hidden()
             model.char_hidden = model.init_char_hidden()
             # Step 2. Get our inputs ready for the network, that is, turn them into
             # Tensors of word indices.
-            sentence_in = prepare_sequence(sentence, word_to_ix)
+            sentence_in = batch.sentence[:,0]
+            sentence = [ix_to_word[ix] for ix in sentence_in]
             words_in = [prepare_sequence(word, char_to_ix) for word in sentence]
-            targets = prepare_sequence(tags, tag_to_ix)
-
+            targets = batch.tags[:,0]
             # Step 3. Run our forward pass.
             tag_scores = model(sentence_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM)
 

@@ -23,7 +23,7 @@ def create_datasets(data_path):
     tag_field.build_vocab(train_dataset)
     char_to_ix = get_char_to_ix(train_dataset)
 
-    return train_dataset, val_dataset, sent_field.vocab.stoi, sent_field.vocab.itos, \
+    return to_iter(train_dataset), to_iter(val_dataset), sent_field.vocab.stoi, sent_field.vocab.itos, \
            tag_field.vocab.stoi, tag_field.vocab.itos, char_to_ix
 
 def get_char_to_ix(dataset):
@@ -50,7 +50,7 @@ def to_iter(dataset, bucket=True):
     if bucket:
         #sort_within_batch is used for when you want to "pack_padded_sequence with the padded sequence data and \
         #convert the padded sequence tensor to a PackedSequence object" (A Comprehesive Introduction to Torchtext)
-        return BucketIterator(dataset, batch_size=batch_size, device=-1, sort_within_batch=False, sort_key=lambda x: len(x.sentences), shuffle=False)
+        return BucketIterator(dataset, sort=True, batch_size=batch_size, device=-1, sort_within_batch=False, sort_key=lambda x: len(x.sentence), shuffle=False)
     else:
         return Iterator(dataset, batch_size=batch_size, device=-1, sort=False, sort_within_batch=False, repeat=False)
 

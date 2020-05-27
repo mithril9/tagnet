@@ -3,6 +3,7 @@
 import torch
 from torchtext.data import Field, BucketIterator, Iterator, TabularDataset
 import pdb
+import os
 from typing import List,  Tuple
 #from sklearn.model_selection import train_test_split
 import pandas as pd
@@ -20,9 +21,30 @@ def create_datasets(data_path):
     #build the vocab over the train set only
     sent_field.build_vocab(train_dataset)
     tag_field.build_vocab(train_dataset)
+    char_to_ix = get_char_to_ix(train_dataset)
 
     return train_dataset, val_dataset, sent_field.vocab.stoi, sent_field.vocab.itos, \
-           tag_field.vocab.stoi, tag_field.vocab.itos
+           tag_field.vocab.stoi, tag_field.vocab.itos, char_to_ix
+
+def get_char_to_ix(dataset):
+    #we will create a dummy csv and dataset so that we end up with a Vocab object that we can use as our char_to_ix map
+    char_field = Field(lower=True)
+    field_list = [('chars', char_field)]
+    char_set = set({})
+    for example in dataset:
+        for word in example.sentence:
+            for char in word:
+                if char not in char_set:
+                    char_set.add(char)
+    char_list = sorted(list(char_set))
+    chars = " ".join(char_list)
+    df = pd.DataFrame({'chars':[chars]}, columns=["chars"])
+    df.to_csv('chars.csv', index=False)
+    dummy_dataset = TabularDataset(path="./chars.csv", format='csv', fields=field_list, skip_header=True)
+    char_field.build_vocab(dummy_dataset)
+    os.remove('chars.csv')
+    return char_field.vocab.stoi
+
 
 def to_iter(dataset, bucket=True):
     if bucket:

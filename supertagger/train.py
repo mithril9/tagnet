@@ -11,16 +11,16 @@ import pdb, json
 
 
 def main(data_path):
-    train_dataset, val_dataset, word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = create_datasets(data_path)
+    train_dataset, val_dataset, word_to_ix, ix_to_word, tag_to_ix, ix_to_tag, char_to_ix = create_datasets(data_path)
     train_iter = to_iter(train_dataset)
     val_iter = to_iter(val_dataset)
     char_to_ix = create_char_ix_mappings(train_dataset)
-    pdb.set_trace()
     model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,\
                        len(char_to_ix))
     loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.1)
     torch.autograd.set_detect_anomaly(True)
+    pdb.set_trace()
     print("training..\n")
     for epoch in range(num_epochs):  # again, normally you would NOT do 300 epochs, it is toy data
         if epoch == 0 or (epoch+1) % 20 == 0:

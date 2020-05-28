@@ -31,9 +31,8 @@ def main(data_path):
             model.char_hidden = model.init_char_hidden()
             # Step 2. Get our inputs ready for the network, that is, turn them into
             # Tensors of word indices.
-            sentence_in = batch.sentence[:,0]
-            sentence = [ix_to_word[ix] for ix in sentence_in]
-            words_in = [prepare_sequence(word, char_to_ix) for word in sentence]
+            sentences_in = batch.sentence
+            words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
             targets = batch.tags[:,0]
             # Step 3. Run our forward pass.
             tag_scores = model(sentence_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM)

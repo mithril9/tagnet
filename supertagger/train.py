@@ -67,11 +67,10 @@ def main(data_path):
         for batch in val_iter:
             for target in batch.tags.permute(1, 0):
                 y_true += [ix_to_tag[y.item()] for y in target]
-        try:
-            accuracy = accuracy_score(y_true, y_pred)
-        except Exception:
-            pdb.set_trace()
+        accuracy = accuracy_score(y_true, y_pred)
         print(y_pred)
+        print(y_true)
+        pdb.set_trace()
         print("Eval loss: " + str(loss.item()))
         print("Eval accuracy: {:.2f}%".format(accuracy*100))
 

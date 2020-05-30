@@ -80,20 +80,25 @@ def get_words_in(sentences_in, char_to_ix, ix_to_word):
     words_in = []
     for i in range(sentences_in.shape[1]):
         words_in.append([prepare_sequence(word, char_to_ix) for word in [ix_to_word[ix] for ix in sentences_in[:, i]]])
-        words_in[-1] = batchify_words_in(words_in[-1])
+        words_in[-1] = batchify_sent(words_in[-1])
     return words_in
 
-def batchify_words_in(words):
+def batchify_sent(sent):
     #we need to pad the words in the sentence so that they all have the same number of characters
     max_len = 0
-    for word in words:
+    for word in sent:
         if word.shape[0] > max_len:
             max_len = word.shape[0]
-    for i in range(len(words)):
+    bm = False
+    for i in range(len(sent)):
         #create a tensor of ones (1 is the pad index) and then fill it in with values from the source tensor
-        target_tensor = torch.ones(max_len)
-        target_tensor[:words[i].shape[0]] = words[i]
-        words[i] = target_tensor
-    return words
+        sent_tensor = torch.ones(max_len, 1, dtype=torch.long)
+        sent_tensor[:sent[i].shape[0],0] = sent[i]
+        if bm:
+            batch_matrix = torch.cat((batch_matrix, sent_tensor), dim=1)
+        else:
+            bm = True
+            batch_matrix = sent_tensor
+    return batch_matrix
 
 

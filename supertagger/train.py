@@ -25,17 +25,19 @@ def main(data_path):
             # Step 1. Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
             model.zero_grad()
+            word_batch_size = batch.sentence.shape[0]
+            sent_batch_size = batch.sentence.shape[1]
             # Also, we need to clear out the hidden state of the LSTM,
             # detaching it from its history on the last instance.
-            model.hidden = model.init_hidden()
-            model.char_hidden = model.init_char_hidden()
+            model.hidden = model.init_hidden(sent_batch_size)
+            model.char_hidden = model.init_char_hidden(word_batch_size)
             # Step 2. Get our inputs ready for the network, that is, turn them into
             # Tensors of word indices.
             sentences_in = batch.sentence
             words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
-            targets = batch.tags[:,0]
+            targets = batch.tags
             # Step 3. Run our forward pass.
-            tag_scores = model(sentence_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM)
+            tag_scores = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM)
 
             # Step 4. Compute the loss, gradients, and update the parameters by
             #  calling optimizer.step()

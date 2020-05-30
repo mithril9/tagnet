@@ -3,6 +3,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import pdb
 
 class LSTMTagger(nn.Module):
@@ -37,9 +38,9 @@ class LSTMTagger(nn.Module):
         return (torch.zeros(1, word_batch_size, self.char_hidden_dim),
                 torch.zeros(1, word_batch_size, self.char_hidden_dim))
 
-    def forward(self, sentences, words, char_embedding_dim, char_hidden_dim):
-        sent_len = sentences.shape[1]
+    def forward(self, sentences, words, char_embedding_dim, char_hidden_dim, sent_lengths):
         sent_batch_size = sentences.shape[0]
+        sent_len = sentences.shape[1]
         embeds = self.word_embeddings(sentences)
         char_final_hiddens = torch.zeros(sent_batch_size, sent_len, char_hidden_dim, requires_grad=False)
         for sent in range(sent_batch_size):
@@ -48,7 +49,12 @@ class LSTMTagger(nn.Module):
             _, self.char_hidden = self.char_lstm(char_embeds, self.char_hidden)
             char_final_hiddens[sent,:,:] = self.char_hidden[0]
         embeds = torch.cat((embeds, char_final_hiddens), dim=2)
+        embeds = pack_padded_sequence(embeds, sent_lengths, enforce_sorted=False, batch_first=True)
         lstm_out, self.hidden = self.lstm(embeds, self.hidden)
+        lstm_out, _ = pad_packed_sequence(lstm_out, batch_first=True)
+        lstm_out = lstm_out.contiguous()
+        lstm_out = lstm_out.view(-1, lstm_out.shape[2])
         tag_space = self.hidden2tag(lstm_out)
-        tag_scores = F.log_softmax(tag_space, dim=1).permute(0,2,1)
+        tag_scores = F.log_softmax(tag_space, dim=1)
+        tag_scores = tag_scores.view(sent_batch_size, sent_len, -1)
         return tag_scores

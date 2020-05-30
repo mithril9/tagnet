@@ -8,6 +8,7 @@ import torch.optim as optim
 import argparse
 import os
 import pdb, json
+from sklearn.metrics import accuracy_score
 
 
 def main(data_path):
@@ -16,12 +17,16 @@ def main(data_path):
                        len(char_to_ix))
     loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.1)
-    torch.autograd.set_detect_anomaly(True)
+    #torch.autograd.set_detect_anomaly(True)
     print("training..\n")
     for epoch in range(num_epochs):  # again, normally you would NOT do 300 epochs, it is toy data
         if epoch == 0 or (epoch+1) % 20 == 0:
             print('======== Epoch {} / {} ========'.format(epoch + 1, num_epochs))
+            if epoch:
+                print("Current training loss: " + str(loss.item()))
+        batch_num = 0
         for batch in train_iter:
+            batch_num += 1
             # Step 1. Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
             model.zero_grad()
@@ -34,27 +39,51 @@ def main(data_path):
             targets = batch.tags.permute(1, 0)
             words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
             # Step 3. Run our forward pass.
-            tag_scores = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM)
+            tag_scores = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, train_iter.sent_lengths[batch_num-1])
             # Step 4. Compute the loss, gradients, and update the parameters by
             #  calling optimizer.step()
             loss = loss_function(tag_scores, targets)
-            print("Current training loss: "+str(loss.item()))
             loss.backward()
             optimizer.step()
 
-    # See what the scores are after training
+    # Evaluate the model
+    model.eval()
+    y_pred = []
     with torch.no_grad():
-        sentence_in = prepare_sequence(data[0][0], word_to_ix)
-        words_in = [prepare_sequence(word, char_to_ix) for word in data[0][0]]
-        tag_scores = model(sentence_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM)
+        batch_num = 0
+        for batch in val_iter:
+            batch_num += 1
+            word_batch_size = batch.sentence.shape[0]
+            sent_batch_size = batch.sentence.shape[1]
+            model.hidden = model.init_hidden(sent_batch_size)
+            model.char_hidden = model.init_char_hidden(word_batch_size)
+            sentences_in = batch.sentence.permute(1, 0)
+            targets = batch.tags.permute(1, 0)
+            words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
+            tag_scores = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, train_iter.sent_lengths[batch_num-1])
+            loss = loss_function(tag_scores, targets)
+            y_pred += categoriesFromOutput(tag_scores, ix_to_tag)
+        y_true = []
+        for batch in val_iter:
+            for target in batch.tags.permute(1, 0):
+                y_true += [ix_to_tag[y.item()] for y in target]
+        try:
+            accuracy = accuracy_score(y_true, y_pred)
+        except Exception:
+            pdb.set_trace()
+        print(y_pred)
+        print("Eval loss: " + str(loss.item()))
+        print("Eval accuracy: {:.2f}%".format(accuracy*100))
 
-        # The sentence is "the dog ate the apple".  i,j corresponds to score for tag j
-        # for word i. The predicted tag is the maximum scoring tag.
-        # Here, we can see the predicted sequence below is 0 1 2 0 1
-        # since 0 is index of the maximum value of row 1,
-        # 1 is the index of maximum value of row 2, etc.
-        # Which is DET NOUN VERB DET NOUN, the correct sequence!
-        print(tag_scores)
+def categoriesFromOutput(tag_scores, ix_to_tag):
+    predictions = []
+    top_n, top_i = tag_scores.topk(1, dim=1)
+    #unroll all batches into one long sequence for convenience
+    top_i = top_i.view(top_i.shape[0]*top_i.shape[2])
+    for prediction in top_i:
+        pred = ix_to_tag[prediction.item()]
+        predictions.append(pred)
+    return predictions
 
 
 if __name__ == '__main__':

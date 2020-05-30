@@ -78,8 +78,8 @@ def prepare_sequence(seq, to_ix):
 
 def get_words_in(sentences_in, char_to_ix, ix_to_word):
     words_in = []
-    for i in range(sentences_in.shape[1]):
-        words_in.append([prepare_sequence(word, char_to_ix) for word in [ix_to_word[ix] for ix in sentences_in[:, i]]])
+    for i in range(sentences_in.shape[0]):
+        words_in.append([prepare_sequence(word, char_to_ix) for word in [ix_to_word[ix] for ix in sentences_in[i, :]]])
         words_in[-1] = batchify_sent(words_in[-1])
     return words_in
 
@@ -92,10 +92,10 @@ def batchify_sent(sent):
     bm = False
     for i in range(len(sent)):
         #create a tensor of ones (1 is the pad index) and then fill it in with values from the source tensor
-        sent_tensor = torch.ones(max_len, 1, dtype=torch.long)
-        sent_tensor[:sent[i].shape[0],0] = sent[i]
+        sent_tensor = torch.ones(1, max_len, dtype=torch.long)
+        sent_tensor[0,:sent[i].shape[0]] = sent[i]
         if bm:
-            batch_matrix = torch.cat((batch_matrix, sent_tensor), dim=1)
+            batch_matrix = torch.cat((batch_matrix, sent_tensor), dim=0)
         else:
             bm = True
             batch_matrix = sent_tensor

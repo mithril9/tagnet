@@ -22,8 +22,8 @@ def create_datasets(data_path):
     sent_field.build_vocab(train_dataset)
     tag_field.build_vocab(train_dataset)
     char_to_ix = get_char_to_ix(train_dataset)
-    train_iter = to_iter(train_dataset, sent_field.vocab.stoi['<pad>'])
-    val_iter = to_iter(val_dataset, sent_field.vocab.stoi['<pad>'])
+    train_iter = to_iter(train_dataset, sent_field.vocab.stoi['<pad>'], batch_size)
+    val_iter = to_iter(val_dataset, sent_field.vocab.stoi['<pad>'], 1)
     return train_iter, val_iter, sent_field.vocab.stoi, sent_field.vocab.itos, \
            tag_field.vocab.stoi, tag_field.vocab.itos, char_to_ix
 
@@ -47,13 +47,13 @@ def get_char_to_ix(dataset):
     return char_field.vocab.stoi
 
 
-def to_iter(dataset, pad_ix, bucket=True):
+def to_iter(dataset, pad_ix, batch_size, bucket=True):
     if bucket:
         #sort_within_batch is used for when you want to "pack_padded_sequence with the padded sequence data and \
         #convert the padded sequence tensor to a PackedSequence object" (A Comprehesive Introduction to Torchtext)
-        data_iter = BucketIterator(dataset, sort=True, batch_size=batch_size, device=-1, sort_within_batch=False, sort_key=lambda x: len(x.sentence), shuffle=False)
+        data_iter = BucketIterator(dataset, sort=True, batch_size=batch_size, device=-1, sort_within_batch=True, sort_key=lambda x: len(x.sentence), shuffle=False)
     else:
-        data_iter = Iterator(dataset, batch_size=batch_size, device=-1, sort=False, sort_within_batch=False, repeat=False)
+        data_iter = Iterator(dataset, batch_size=batch_size, device=-1, sort=False, sort_within_batch=True, repeat=False)
     data_iter.sent_lengths = []
     for batch in data_iter:
         batch_sent_len = batch.sentence[:,0].shape[0]

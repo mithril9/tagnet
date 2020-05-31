@@ -21,6 +21,7 @@ def main(data_path):
     optimizer = optim.SGD(model.parameters(), lr=0.1)
     #torch.autograd.set_detect_anomaly(True)
     print("training..\n")
+    model.train()
     for epoch in range(num_epochs):  # again, normally you would NOT do 300 epochs, it is toy data
         if epoch == 0 or (epoch+1) % 20 == 0:
             print('======== Epoch {} / {} ========'.format(epoch + 1, num_epochs))
@@ -34,56 +35,50 @@ def main(data_path):
             model.zero_grad()
             word_batch_size = batch.sentence.shape[0]
             sent_batch_size = batch.sentence.shape[1]
-            model.hidden = model.init_hidden(sent_batch_size)
-            model.char_hidden = model.init_char_hidden(word_batch_size)
+            model.init_hidden(sent_batch_size)
             #we want batch to be the first dimension
             sentences_in = batch.sentence.permute(1,0)
-            targets = batch.tags.permute(1, 0)
+            targets = batch.tags.permute(1,0).reshape(sent_batch_size*word_batch_size)
             words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
             # Step 3. Run our forward pass.
-            tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, train_iter.sent_lengths[batch_num-1])
+            tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, train_iter.sent_lengths[batch_num-1], word_batch_size)
             # Step 4. Compute the loss, gradients, and update the parameters by
             #  calling optimizer.step()
-            try:
-                loss = loss_function(tag_logits, targets)
-            except Exception:
-                pdb.set_trace()
+            loss = loss_function(tag_logits, targets)
             loss.backward()
             optimizer.step()
 
     # Evaluate the model
     model.eval()
     y_pred = []
+    y_true = []
     with torch.no_grad():
         batch_num = 0
         for batch in val_iter:
             batch_num += 1
             word_batch_size = batch.sentence.shape[0]
             sent_batch_size = batch.sentence.shape[1]
-            model.hidden = model.init_hidden(sent_batch_size)
-            model.char_hidden = model.init_char_hidden(word_batch_size)
+            model.init_hidden(sent_batch_size)
             sentences_in = batch.sentence.permute(1, 0)
-            targets = batch.tags.permute(1, 0)
+            targets = batch.tags.permute(1,0).reshape(sent_batch_size*word_batch_size)
+            y_true += [ix_to_tag[ix.item()] for ix in targets]
             words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
-            tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, train_iter.sent_lengths[batch_num-1])
-            tag_scores = F.log_softmax(tag_logits, dim=1)
+            tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, val_iter.sent_lengths[batch_num-1], word_batch_size, eval=True)
             loss = loss_function(tag_logits, targets)
-            y_pred += categoriesFromOutput(tag_scores, ix_to_tag)
-        y_true = []
-        for batch in val_iter:
-            for target in batch.tags.permute(1, 0):
-                y_true += [ix_to_tag[y.item()] for y in target]
+            print("Eval loss: " + str(loss.item()))
+            pred = categoriesFromOutput(tag_logits, ix_to_tag)
+            print(pred)
+            y_pred += pred
+            #for target in targets:
+                #y_true += [ix_to_tag[y.item()] for y in target]
         accuracy = accuracy_score(y_true, y_pred)
-        print(y_pred)
-        print(y_true)
-        print("Eval loss: " + str(loss.item()))
         print("Eval accuracy: {:.2f}%".format(accuracy*100))
 
 def categoriesFromOutput(tag_scores, ix_to_tag):
     predictions = []
     top_n, top_i = tag_scores.topk(1, dim=1)
     #unroll all batches into one long sequence for convenience
-    top_i = top_i.view(top_i.shape[0]*top_i.shape[2])
+    top_i = top_i.view(top_i.shape[0]*top_i.shape[1])
     for prediction in top_i:
         pred = ix_to_tag[prediction.item()]
         predictions.append(pred)

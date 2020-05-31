@@ -27,7 +27,7 @@ class LSTMTagger(nn.Module):
         # Refer to the Pytorch documentation to see exactly
         # why they have this dimensionality.
         # The axes semantics are (num_layers, minibatch_size, hidden_dim)
-        return (torch.zeros(1, sent_batch_size, self.hidden_dim),
+        self.hidden = (torch.zeros(1, sent_batch_size, self.hidden_dim),
                 torch.zeros(1, sent_batch_size, self.hidden_dim))
 
     def init_char_hidden(self, word_batch_size):
@@ -35,17 +35,20 @@ class LSTMTagger(nn.Module):
         # Refer to the Pytorch documentation to see exactly
         # why they have this dimensionality.
         # The axes semantics are (num_layers, minibatch_size, hidden_dim)
-        return (torch.zeros(1, word_batch_size, self.char_hidden_dim),
+        self.char_hidden = (torch.zeros(1, word_batch_size, self.char_hidden_dim),
                 torch.zeros(1, word_batch_size, self.char_hidden_dim))
 
-    def forward(self, sentences, words, char_embedding_dim, char_hidden_dim, sent_lengths):
+    def forward(self, sentences, words, char_embedding_dim, char_hidden_dim, sent_lengths, word_batch_size, eval=False):
         sent_batch_size = sentences.shape[0]
         sent_len = sentences.shape[1]
         embeds = self.word_embeddings(sentences)
         char_final_hiddens = torch.zeros(sent_batch_size, sent_len, char_hidden_dim, requires_grad=False)
         for sent in range(sent_batch_size):
+            self.init_char_hidden(word_batch_size)
             char_embeds = self.char_embeddings(words[sent])
+            word_lengths = (words[sent] != 1).float().sum(dim=1)
             # we treat each sentence as a batch of words for the char LSTM, hence batch size = sent_len
+            char_embeds = pack_padded_sequence(char_embeds, word_lengths, enforce_sorted=False, batch_first=True)
             _, self.char_hidden = self.char_lstm(char_embeds, self.char_hidden)
             char_final_hiddens[sent,:,:] = self.char_hidden[0]
         embeds = torch.cat((embeds, char_final_hiddens), dim=2)
@@ -53,8 +56,8 @@ class LSTMTagger(nn.Module):
         lstm_out, self.hidden = self.lstm(embeds, self.hidden)
         lstm_out, _ = pad_packed_sequence(lstm_out, batch_first=True)
         lstm_out = lstm_out.contiguous()
-        lstm_out = lstm_out.view(-1, lstm_out.shape[2])
+        #flatten out batches and pass all sentences to Linear layer as one big sequence (i.e. each word is a batch)
+        lstm_out = lstm_out.view(sent_batch_size*sent_len, lstm_out.shape[2])
         tag_logits = self.hidden2tag(lstm_out)
-        #tag_scores = F.log_softmax(tag_logits, dim=1)
-        tag_logits = tag_logits.view(sent_batch_size, -1, sent_len)
+        tag_logits = tag_logits.view(sent_batch_size*sent_len, -1)
         return tag_logits

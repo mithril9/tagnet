@@ -8,6 +8,7 @@ import torch.optim as optim
 import argparse
 import os
 import pdb, json
+import torch.nn.functional as F
 from sklearn.metrics import accuracy_score
 
 
@@ -15,7 +16,8 @@ def main(data_path):
     train_iter, val_iter, word_to_ix, ix_to_word, tag_to_ix, ix_to_tag, char_to_ix = create_datasets(data_path)
     model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,\
                        len(char_to_ix))
-    loss_function = nn.NLLLoss()
+    #loss_function = nn.NLLLoss()
+    loss_function = torch.nn.CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
     optimizer = optim.SGD(model.parameters(), lr=0.1)
     #torch.autograd.set_detect_anomaly(True)
     print("training..\n")
@@ -39,10 +41,13 @@ def main(data_path):
             targets = batch.tags.permute(1, 0)
             words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
             # Step 3. Run our forward pass.
-            tag_scores = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, train_iter.sent_lengths[batch_num-1])
+            tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, train_iter.sent_lengths[batch_num-1])
             # Step 4. Compute the loss, gradients, and update the parameters by
             #  calling optimizer.step()
-            loss = loss_function(tag_scores, targets)
+            try:
+                loss = loss_function(tag_logits, targets)
+            except Exception:
+                pdb.set_trace()
             loss.backward()
             optimizer.step()
 
@@ -60,8 +65,9 @@ def main(data_path):
             sentences_in = batch.sentence.permute(1, 0)
             targets = batch.tags.permute(1, 0)
             words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
-            tag_scores = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, train_iter.sent_lengths[batch_num-1])
-            loss = loss_function(tag_scores, targets)
+            tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, train_iter.sent_lengths[batch_num-1])
+            tag_scores = F.log_softmax(tag_logits, dim=1)
+            loss = loss_function(tag_logits, targets)
             y_pred += categoriesFromOutput(tag_scores, ix_to_tag)
         y_true = []
         for batch in val_iter:
@@ -70,7 +76,6 @@ def main(data_path):
         accuracy = accuracy_score(y_true, y_pred)
         print(y_pred)
         print(y_true)
-        pdb.set_trace()
         print("Eval loss: " + str(loss.item()))
         print("Eval accuracy: {:.2f}%".format(accuracy*100))
 

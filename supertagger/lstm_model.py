@@ -54,7 +54,7 @@ class LSTMTagger(nn.Module):
         lstm_out, _ = pad_packed_sequence(lstm_out, batch_first=True)
         lstm_out = lstm_out.contiguous()
         lstm_out = lstm_out.view(-1, lstm_out.shape[2])
-        tag_space = self.hidden2tag(lstm_out)
-        tag_scores = F.log_softmax(tag_space, dim=1)
-        tag_scores = tag_scores.view(sent_batch_size, sent_len, -1)
-        return tag_scores
+        tag_logits = self.hidden2tag(lstm_out)
+        #tag_scores = F.log_softmax(tag_logits, dim=1)
+        tag_logits = tag_logits.view(sent_batch_size, -1, sent_len)
+        return tag_logits

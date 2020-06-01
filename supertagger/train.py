@@ -69,7 +69,6 @@ def main(data_path):
             loss = loss_function(tag_logits, targets)
             losses.append(loss,item())
             pred = categoriesFromOutput(tag_logits, ix_to_tag)
-            print(pred)
             y_pred += pred
             #for target in targets:
                 #y_true += [ix_to_tag[y.item()] for y in target]

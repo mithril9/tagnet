@@ -23,13 +23,14 @@ def main(data_path):
     print("training..\n")
     model.train()
     for epoch in range(num_epochs):  # again, normally you would NOT do 300 epochs, it is toy data
-        if epoch == 0 or (epoch+1) % 20 == 0:
-            print('======== Epoch {} / {} ========'.format(epoch + 1, num_epochs))
-            if epoch:
-                print("Current training loss: " + str(loss.item()))
+        print('\n======== Epoch {} / {} ========'.format(epoch + 1, num_epochs)+'\n')
+        if epoch:
+            print("Current training loss: " + str(loss.item()))
         batch_num = 0
         for batch in train_iter:
             batch_num += 1
+            if batch_num % 20 == 0 or batch_num == 1:
+                print('======== Batch {} / {} ========'.format(batch_num, len(train_iter)))
             # Step 1. Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
             model.zero_grad()

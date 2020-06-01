@@ -48,13 +48,14 @@ def main(data_path):
             loss = loss_function(tag_logits, targets)
             loss.backward()
             optimizer.step()
-
+    print("Final training loss: " + str(loss.item()))
     # Evaluate the model
     model.eval()
     y_pred = []
     y_true = []
     with torch.no_grad():
         batch_num = 0
+        losses=[]
         for batch in val_iter:
             batch_num += 1
             word_batch_size = batch.sentence.shape[0]
@@ -66,7 +67,7 @@ def main(data_path):
             words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
             tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, val_iter.sent_lengths[batch_num-1], word_batch_size, eval=True)
             loss = loss_function(tag_logits, targets)
-            print("Eval loss: " + str(loss.item()))
+            losses.append(loss,item())
             pred = categoriesFromOutput(tag_logits, ix_to_tag)
             print(pred)
             y_pred += pred
@@ -74,6 +75,7 @@ def main(data_path):
                 #y_true += [ix_to_tag[y.item()] for y in target]
         accuracy = accuracy_score(y_true, y_pred)
         print("Eval accuracy: {:.2f}%".format(accuracy*100))
+        print("Eval loss: " + str(sum(losses)/len(val_iter)))
 
 def categoriesFromOutput(tag_scores, ix_to_tag):
     predictions = []

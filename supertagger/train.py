@@ -9,7 +9,8 @@ import argparse
 import os
 import pdb, json
 import torch.nn.functional as F
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+import matplotlib.pyplot as plt
 
 
 def main(data_path):
@@ -22,15 +23,19 @@ def main(data_path):
     #torch.autograd.set_detect_anomaly(True)
     print("training..\n")
     model.train()
+    av_train_losses = []
+    av_eval_losses = []
     for epoch in range(num_epochs):  # again, normally you would NOT do 300 epochs, it is toy data
-        print('\n======== Epoch {} / {} ========'.format(epoch + 1, num_epochs)+'\n')
-        if epoch:
-            print("Current training loss: " + str(loss.item()))
+        print('===============================')
+        print('\n======== Epoch {} / {} ========'.format(epoch + 1, num_epochs))
         batch_num = 0
+        train_losses = []
         for batch in train_iter:
             batch_num += 1
             if batch_num % 20 == 0 or batch_num == 1:
-                print('======== Batch {} / {} ========'.format(batch_num, len(train_iter)))
+                if batch_num != 1:
+                    print("\nAverage Training loss for epoch {} at end of batch {}: {}".format(epoch, str(batch_num-1),sum(train_losses)/len(train_losses)))
+                print('\n======== Batch {} / {} ========'.format(batch_num, len(train_iter)))
             # Step 1. Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
             model.zero_grad()
@@ -46,35 +51,54 @@ def main(data_path):
             # Step 4. Compute the loss, gradients, and update the parameters by
             #  calling optimizer.step()
             loss = loss_function(tag_logits, targets)
+            train_losses.append(round(loss.item(), 2))
             loss.backward()
             optimizer.step()
-    print("Final training loss: " + str(loss.item()))
-    # Evaluate the model
-    model.eval()
-    y_pred = []
-    y_true = []
-    with torch.no_grad():
-        batch_num = 0
-        losses=[]
-        for batch in val_iter:
-            batch_num += 1
-            word_batch_size = batch.sentence.shape[0]
-            sent_batch_size = batch.sentence.shape[1]
-            model.init_hidden(sent_batch_size)
-            sentences_in = batch.sentence.permute(1, 0)
-            targets = batch.tags.permute(1,0).reshape(sent_batch_size*word_batch_size)
-            y_true += [ix_to_tag[ix.item()] for ix in targets]
-            words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
-            tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, val_iter.sent_lengths[batch_num-1], word_batch_size, eval=True)
-            loss = loss_function(tag_logits, targets)
-            losses.append(loss,item())
-            pred = categoriesFromOutput(tag_logits, ix_to_tag)
-            y_pred += pred
-            #for target in targets:
-                #y_true += [ix_to_tag[y.item()] for y in target]
-        accuracy = accuracy_score(y_true, y_pred)
-        print("Eval accuracy: {:.2f}%".format(accuracy*100))
-        print("Eval loss: " + str(sum(losses)/len(val_iter)))
+        av_train_losses.append(sum(train_losses)/len(train_losses))
+        # Evaluate the model
+        model.eval()
+        y_pred = []
+        y_true = []
+        print("\nEvaluating model...")
+        with torch.no_grad():
+            batch_num = 0
+            eval_losses = []
+            for batch in val_iter:
+                batch_num += 1
+                word_batch_size = batch.sentence.shape[0]
+                sent_batch_size = batch.sentence.shape[1]
+                model.init_hidden(sent_batch_size)
+                sentences_in = batch.sentence.permute(1, 0)
+                targets = batch.tags.permute(1,0).reshape(sent_batch_size*word_batch_size)
+                y_true += [ix_to_tag[ix.item()] for ix in targets]
+                words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
+                tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, val_iter.sent_lengths[batch_num-1], word_batch_size, eval=True)
+                eval_loss = loss_function(tag_logits, targets)
+                eval_losses.append(round(eval_loss.item(), 2))
+                pred = categoriesFromOutput(tag_logits, ix_to_tag)
+                y_pred += pred
+            av_eval_losses.append(sum(eval_losses)/len(eval_losses))
+            accuracy = accuracy_score(y_true, y_pred)
+            micro_precision, micro_recall, micro_f1, support = precision_recall_fscore_support(y_true, y_pred,
+                                                                                                        average='micro')
+            weighted_macro_precision, weighted_macro_recall, weighted_macro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted')
+            av_epoch_eval_loss = sum(eval_losses)/len(eval_losses)
+            print("Eval accuracy at end of epoch {}: {:.2f}%".format(epoch, accuracy*100))
+            print("Average Eval loss for epoch {}: {}".format(epoch, str(av_epoch_eval_loss)))
+            print("Micro Precision: {}".format(micro_precision))
+            print("Micro Recall: {}".format(micro_recall))
+            print("Micro F1: {}".format(micro_f1))
+            print("Weighted Macro Precision: {}".format(weighted_macro_precision))
+            print("Weighted Macro Recall: {}".format(weighted_macro_recall))
+            print("Weighted Macro F1: {}".format(weighted_macro_f1))
+    plt.xlabel("n epochs")
+    plt.ylabel("loss")
+    plt.plot(av_train_losses, label='train')
+    plt.plot(av_eval_losses, label='eval')
+    plt.legend(loc='upper left')
+    plt.show()
+
+
 
 def categoriesFromOutput(tag_scores, ix_to_tag):
     predictions = []

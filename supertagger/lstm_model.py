@@ -17,32 +17,32 @@ class LSTMTagger(nn.Module):
         self.char_embeddings = nn.Embedding(char_vocab_size, char_embedding_dim)
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
-        self.lstm = nn.LSTM(embedding_dim + char_hidden_dim, hidden_dim, batch_first=True)
-        self.char_lstm = nn.LSTM(char_embedding_dim, char_hidden_dim, batch_first=True)
+        self.lstm = nn.LSTM(embedding_dim + (char_hidden_dim*2), hidden_dim, batch_first=True, bidirectional=True)
+        self.char_lstm = nn.LSTM(char_embedding_dim, char_hidden_dim, batch_first=True, bidirectional=True)
         # The linear layer that maps from hidden state space to tag space
-        self.hidden2tag = nn.Linear(hidden_dim, tagset_size)
+        self.hidden2tag = nn.Linear(hidden_dim*2, tagset_size)
 
     def init_hidden(self, sent_batch_size):
         # Before we've done anything, we dont have any hidden state.
         # Refer to the Pytorch documentation to see exactly
         # why they have this dimensionality.
         # The axes semantics are (num_layers, minibatch_size, hidden_dim)
-        self.hidden = (torch.zeros(1, sent_batch_size, self.hidden_dim),
-                torch.zeros(1, sent_batch_size, self.hidden_dim))
+        self.hidden = (torch.zeros(2, sent_batch_size, self.hidden_dim),
+                torch.zeros(2, sent_batch_size, self.hidden_dim))
 
     def init_char_hidden(self, word_batch_size):
         # Before we've done anything, we dont have any hidden state.
         # Refer to the Pytorch documentation to see exactly
         # why they have this dimensionality.
         # The axes semantics are (num_layers, minibatch_size, hidden_dim)
-        self.char_hidden = (torch.zeros(1, word_batch_size, self.char_hidden_dim),
-                torch.zeros(1, word_batch_size, self.char_hidden_dim))
+        self.char_hidden = (torch.zeros(2, word_batch_size, self.char_hidden_dim),
+                torch.zeros(2, word_batch_size, self.char_hidden_dim))
 
     def forward(self, sentences, words, char_embedding_dim, char_hidden_dim, sent_lengths, word_batch_size, eval=False):
         sent_batch_size = sentences.shape[0]
         sent_len = sentences.shape[1]
         embeds = self.word_embeddings(sentences)
-        char_final_hiddens = torch.zeros(sent_batch_size, sent_len, char_hidden_dim, requires_grad=False)
+        char_final_hiddens = torch.zeros(sent_batch_size, sent_len, char_hidden_dim*2, requires_grad=False)
         for sent in range(sent_batch_size):
             self.init_char_hidden(word_batch_size)
             char_embeds = self.char_embeddings(words[sent])
@@ -50,7 +50,7 @@ class LSTMTagger(nn.Module):
             # we treat each sentence as a batch of words for the char LSTM, hence batch size = sent_len
             char_embeds = pack_padded_sequence(char_embeds, word_lengths, enforce_sorted=False, batch_first=True)
             _, self.char_hidden = self.char_lstm(char_embeds, self.char_hidden)
-            char_final_hiddens[sent,:,:] = self.char_hidden[0]
+            char_final_hiddens[sent,:,:] = torch.cat((self.char_hidden[0][0], self.char_hidden[0][1]), dim=1)
         embeds = torch.cat((embeds, char_final_hiddens), dim=2)
         embeds = pack_padded_sequence(embeds, sent_lengths, enforce_sorted=False, batch_first=True)
         lstm_out, self.hidden = self.lstm(embeds, self.hidden)

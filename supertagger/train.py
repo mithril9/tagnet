@@ -11,21 +11,29 @@ import pdb, json
 import torch.nn.functional as F
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import matplotlib.pyplot as plt
+from time import gmtime, strftime
+
+models_folder = 'models'
 
 
-def main(data_path):
+def main(data_path, saved_model_path):
     train_iter, val_iter, word_to_ix, ix_to_word, tag_to_ix, ix_to_tag, char_to_ix = create_datasets(data_path)
     model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,\
                        len(char_to_ix))
     #loss_function = nn.NLLLoss()
     loss_function = torch.nn.CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
     optimizer = optim.SGD(model.parameters(), lr=0.1)
+    if saved_model_path:
+        av_train_losses, av_eval_losses, checkpoint_epoch, loss = load_model(model, optimizer, saved_model_path)
+    else:
+        checkpoint_epoch = 0
+        av_train_losses = []
+        av_eval_losses = []
     #torch.autograd.set_detect_anomaly(True)
     print("training..\n")
     model.train()
-    av_train_losses = []
-    av_eval_losses = []
     for epoch in range(num_epochs):  # again, normally you would NOT do 300 epochs, it is toy data
+        epoch += checkpoint_epoch
         print('===============================')
         print('\n======== Epoch {} / {} ========'.format(epoch + 1, num_epochs))
         batch_num = 0
@@ -91,6 +99,10 @@ def main(data_path):
             print("Weighted Macro Precision: {}".format(weighted_macro_precision))
             print("Weighted Macro Recall: {}".format(weighted_macro_recall))
             print("Weighted Macro F1: {}".format(weighted_macro_f1))
+    if models_folder not in os.listdir(os.getcwd()):
+        os.mkdir(models_folder)
+    model_file_name = strftime("%Y_%m_%d_%H_%M_%S_"+str(EMBEDDING_DIM)+"_"+str(CHAR_EMBEDDING_DIM)+"_"+str(HIDDEN_DIM)+"_"+str(num_epochs+checkpoint_epoch)+"_"+str(batch_size)+".pt", gmtime())
+    save_model(epoch+checkpoint_epoch, model, optimizer, loss, av_train_losses, av_eval_losses, model_file_name)
     plt.xlabel("n epochs")
     plt.ylabel("loss")
     plt.plot(av_train_losses, label='train')
@@ -98,6 +110,26 @@ def main(data_path):
     plt.legend(loc='upper left')
     plt.show()
 
+
+def load_model(model, optimizer, model_path):
+    print("Attempting to load saved model checkpoint from: "+model_path)
+    checkpoint = torch.load(model_path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    print("Successfully loaded model..")
+    return checkpoint['av_train_losses'], checkpoint['av_eval_losses'], checkpoint['checkpoint_epoch'], checkpoint['loss']
+
+
+def save_model(epoch, model, optimizer, loss, av_train_losses, av_eval_losses, model_file_name):
+    torch.save({
+            'checkpoint_epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': loss,
+            'av_train_losses': av_train_losses,
+            'av_eval_losses': av_eval_losses
+    }, os.path.join(models_folder, model_file_name))
+    print("Model successfully saved as: "+os.path.join(models_folder, model_file_name))
 
 
 def categoriesFromOutput(tag_scores, ix_to_tag):
@@ -114,7 +146,12 @@ def categoriesFromOutput(tag_scores, ix_to_tag):
 if __name__ == '__main__':
     cmd_parser = argparse.ArgumentParser(description='command line arguments.')
     cmd_parser.add_argument('--data-path', dest='data_path', type=str, nargs=1, help='the path to the folder containing the data files')
-
+    cmd_parser.add_argument('--model-path', dest='saved_model_path', type=str, nargs=1,
+                            help='the relative path to a model you wish to resume training from')
     args = cmd_parser.parse_args()
+    if args.saved_model_path:
+        saved_model_path = args.saved_model_path[0]
+    else:
+        saved_model_path = None
 
-    main(args.data_path[0])
+    main(args.data_path[0], saved_model_path)

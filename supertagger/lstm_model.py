@@ -17,23 +17,17 @@ class LSTMTagger(nn.Module):
         self.char_embeddings = nn.Embedding(char_vocab_size, char_embedding_dim)
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
-        self.lstm = nn.LSTM(embedding_dim + (char_hidden_dim*2), hidden_dim, batch_first=True, bidirectional=True)
+        self.lstm = nn.LSTM(embedding_dim + (char_hidden_dim*2), hidden_dim, num_layers=2, batch_first=True, bidirectional=True)
         self.char_lstm = nn.LSTM(char_embedding_dim, char_hidden_dim, batch_first=True, bidirectional=True)
         # The linear layer that maps from hidden state space to tag space
         self.hidden2tag = nn.Linear(hidden_dim*2, tagset_size)
 
     def init_hidden(self, sent_batch_size):
-        # Before we've done anything, we dont have any hidden state.
-        # Refer to the Pytorch documentation to see exactly
-        # why they have this dimensionality.
-        # The axes semantics are (num_layers, minibatch_size, hidden_dim)
-        self.hidden = (torch.zeros(2, sent_batch_size, self.hidden_dim),
-                torch.zeros(2, sent_batch_size, self.hidden_dim))
+        # The axes semantics are (num_layers*2, minibatch_size, hidden_dim)
+        self.hidden = (torch.zeros(4, sent_batch_size, self.hidden_dim),
+                torch.zeros(4, sent_batch_size, self.hidden_dim))
 
     def init_char_hidden(self, word_batch_size):
-        # Before we've done anything, we dont have any hidden state.
-        # Refer to the Pytorch documentation to see exactly
-        # why they have this dimensionality.
         # The axes semantics are (num_layers, minibatch_size, hidden_dim)
         self.char_hidden = (torch.zeros(2, word_batch_size, self.char_hidden_dim),
                 torch.zeros(2, word_batch_size, self.char_hidden_dim))

@@ -22,7 +22,7 @@ def main(data_path, saved_model_path):
                        len(char_to_ix))
     #loss_function = nn.NLLLoss()
     loss_function = torch.nn.CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
-    optimizer = optim.SGD(model.parameters(), lr=0.1)
+    optimizer = optim.Adam(model.parameters(), lr=0.1)
     if saved_model_path:
         av_train_losses, av_eval_losses, checkpoint_epoch, loss = load_model(model, optimizer, saved_model_path)
     else:

@@ -22,13 +22,19 @@ def main(data_path, saved_model_path):
                        len(char_to_ix))
     #loss_function = nn.NLLLoss()
     loss_function = torch.nn.CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
-    optimizer = optim.Adam(model.parameters(), lr=0.1)
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    if models_folder not in os.listdir("../"):
+        os.mkdir("../"+models_folder)
     if saved_model_path:
         av_train_losses, av_eval_losses, checkpoint_epoch, loss = load_model(model, optimizer, saved_model_path)
+        lowest_av_eval_loss  = max(av_eval_losses)
+        model_file_name = os.path.split(saved_model_path)[1]
     else:
         checkpoint_epoch = 0
         av_train_losses = []
         av_eval_losses = []
+        lowest_av_eval_loss = 999999
+        model_file_name = strftime("%Y_%m_%d_%H_%M_%S.pt")
     #torch.autograd.set_detect_anomaly(True)
     print("training..\n")
     model.train()
@@ -86,6 +92,10 @@ def main(data_path, saved_model_path):
                 pred = categoriesFromOutput(tag_logits, ix_to_tag)
                 y_pred += pred
             av_eval_losses.append(sum(eval_losses)/len(eval_losses))
+            if av_eval_losses[-1] < lowest_av_eval_loss:
+                lowest_av_eval_loss = av_eval_losses[-1]
+                save_model(epoch + checkpoint_epoch, model, optimizer, loss, av_train_losses, av_eval_losses,
+                           model_file_name)
             accuracy = accuracy_score(y_true, y_pred)
             micro_precision, micro_recall, micro_f1, support = precision_recall_fscore_support(y_true, y_pred,
                                                                                                         average='micro')
@@ -99,10 +109,6 @@ def main(data_path, saved_model_path):
             print("Weighted Macro Precision: {}".format(weighted_macro_precision))
             print("Weighted Macro Recall: {}".format(weighted_macro_recall))
             print("Weighted Macro F1: {}".format(weighted_macro_f1))
-    if models_folder not in os.listdir(os.getcwd()):
-        os.mkdir(models_folder)
-    model_file_name = strftime("%Y_%m_%d_%H_%M_%S_"+str(EMBEDDING_DIM)+"_"+str(CHAR_EMBEDDING_DIM)+"_"+str(HIDDEN_DIM)+"_"+str(num_epochs+checkpoint_epoch)+"_"+str(batch_size)+".pt", gmtime())
-    save_model(epoch+checkpoint_epoch, model, optimizer, loss, av_train_losses, av_eval_losses, model_file_name)
     plt.xlabel("n epochs")
     plt.ylabel("loss")
     plt.plot(av_train_losses, label='train')
@@ -113,7 +119,7 @@ def main(data_path, saved_model_path):
 
 def load_model(model, optimizer, model_path):
     print("Attempting to load saved model checkpoint from: "+model_path)
-    checkpoint = torch.load(model_path)
+    checkpoint = torch.load(os.path.join("../models", model_path))
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     print("Successfully loaded model..")
@@ -121,6 +127,10 @@ def load_model(model, optimizer, model_path):
 
 
 def save_model(epoch, model, optimizer, loss, av_train_losses, av_eval_losses, model_file_name):
+    try:
+        os.remove("../"+os.path.join(models_folder, model_file_name))
+    except FileNotFoundError:
+        pass
     torch.save({
             'checkpoint_epoch': epoch,
             'model_state_dict': model.state_dict(),
@@ -128,8 +138,8 @@ def save_model(epoch, model, optimizer, loss, av_train_losses, av_eval_losses, m
             'loss': loss,
             'av_train_losses': av_train_losses,
             'av_eval_losses': av_eval_losses
-    }, os.path.join(models_folder, model_file_name))
-    print("Model successfully saved as: "+os.path.join(models_folder, model_file_name))
+    }, "../"+os.path.join(models_folder, model_file_name))
+    print("Model with lowest average eval loss successfully saved as: "+"../"+os.path.join(models_folder, model_file_name))
 
 
 def categoriesFromOutput(tag_scores, ix_to_tag):

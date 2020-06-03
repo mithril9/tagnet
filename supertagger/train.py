@@ -27,7 +27,7 @@ def main(data_path, saved_model_path):
         os.mkdir("../"+models_folder)
     if saved_model_path:
         av_train_losses, av_eval_losses, checkpoint_epoch, loss = load_model(model, optimizer, saved_model_path)
-        lowest_av_eval_loss  = max(av_eval_losses)
+        lowest_av_eval_loss  = min(av_eval_losses)
         model_file_name = os.path.split(saved_model_path)[1]
     else:
         checkpoint_epoch = 0
@@ -39,16 +39,15 @@ def main(data_path, saved_model_path):
     print("training..\n")
     model.train()
     for epoch in range(num_epochs):  # again, normally you would NOT do 300 epochs, it is toy data
-        epoch += checkpoint_epoch
         print('===============================')
-        print('\n======== Epoch {} / {} ========'.format(epoch + 1, num_epochs))
+        print('\n======== Epoch {} / {} ========'.format(epoch + 1 + checkpoint_epoch, num_epochs+checkpoint_epoch))
         batch_num = 0
         train_losses = []
         for batch in train_iter:
             batch_num += 1
             if batch_num % 20 == 0 or batch_num == 1:
                 if batch_num != 1:
-                    print("\nAverage Training loss for epoch {} at end of batch {}: {}".format(epoch, str(batch_num-1),sum(train_losses)/len(train_losses)))
+                    print("\nAverage Training loss for epoch {} at end of batch {}: {}".format(epoch + checkpoint_epoch, str(batch_num-1),sum(train_losses)/len(train_losses)))
                 print('\n======== Batch {} / {} ========'.format(batch_num, len(train_iter)))
             # Step 1. Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
@@ -94,15 +93,15 @@ def main(data_path, saved_model_path):
             av_eval_losses.append(sum(eval_losses)/len(eval_losses))
             if av_eval_losses[-1] < lowest_av_eval_loss:
                 lowest_av_eval_loss = av_eval_losses[-1]
-                save_model(epoch + checkpoint_epoch, model, optimizer, loss, av_train_losses, av_eval_losses,
+                save_model(epoch + 1 + checkpoint_epoch, model, optimizer, loss, av_train_losses, av_eval_losses,
                            model_file_name)
             accuracy = accuracy_score(y_true, y_pred)
             micro_precision, micro_recall, micro_f1, support = precision_recall_fscore_support(y_true, y_pred,
                                                                                                         average='micro')
             weighted_macro_precision, weighted_macro_recall, weighted_macro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted')
             av_epoch_eval_loss = sum(eval_losses)/len(eval_losses)
-            print("Eval accuracy at end of epoch {}: {:.2f}%".format(epoch, accuracy*100))
-            print("Average Eval loss for epoch {}: {}".format(epoch, str(av_epoch_eval_loss)))
+            print("Eval accuracy at end of epoch {}: {:.2f}%".format(epoch + 1 + checkpoint_epoch, accuracy*100))
+            print("Average Eval loss for epoch {}: {}".format(epoch + 1 + checkpoint_epoch, str(av_epoch_eval_loss)))
             print("Micro Precision: {}".format(micro_precision))
             print("Micro Recall: {}".format(micro_recall))
             print("Micro F1: {}".format(micro_f1))

@@ -7,25 +7,42 @@ import os
 from typing import List,  Tuple
 #from sklearn.model_selection import train_test_split
 import pandas as pd
-from config import *
+from config import batch_size
 
-def create_datasets(data_path):
+def create_datasets(data_path, mode, word_to_ix=None, word_vocab=None, tag_vocab=None):
     sent_field = Field(lower=True)
     tag_field = Field()
     data_fields = [('sentence', sent_field), ('tags', tag_field)]
-    for data_set in ["train", "val"]:
-        create_csv(data_path+"/"+data_set)
-    train_dataset, val_dataset = TabularDataset.splits(path=data_path, train='train.csv',
-                                                            validation='val.csv', format='csv',
-                                                            fields=data_fields, skip_header=True)
-    #build the vocab over the train set only
-    sent_field.build_vocab(train_dataset)
-    tag_field.build_vocab(train_dataset)
-    char_to_ix = get_char_to_ix(train_dataset)
-    train_iter = to_iter(train_dataset, sent_field.vocab.stoi['<pad>'], batch_size)
-    val_iter = to_iter(val_dataset, sent_field.vocab.stoi['<pad>'], 1)
-    return train_iter, val_iter, sent_field.vocab.stoi, sent_field.vocab.itos, \
-           tag_field.vocab.stoi, tag_field.vocab.itos, char_to_ix
+    if mode == 'train':
+        dataSetNames = ["train", "val"]
+    elif mode == 'test':
+        dataSetNames = ["test"]
+    for data_set in dataSetNames:
+        create_csv(os.path.join(data_path, data_set))
+    if mode == 'train':
+        train_dataset, val_dataset = TabularDataset.splits(path=data_path,
+                                                           train='train.csv',
+                                                           validation='val.csv',
+                                                           format='csv',
+                                                           fields=data_fields,
+                                                           skip_header=True)
+        # build the vocab over the train set only
+        sent_field.build_vocab(train_dataset)
+        tag_field.build_vocab(train_dataset)
+        char_to_ix = get_char_to_ix(train_dataset)
+        train_iter = to_iter(train_dataset, sent_field.vocab.stoi['<pad>'], batch_size)
+        val_iter = to_iter(val_dataset, sent_field.vocab.stoi['<pad>'], 1)
+        return train_iter, val_iter, sent_field.vocab, tag_field.vocab, char_to_ix
+    elif mode == 'test':
+        sent_field.vocab = word_vocab
+        tag_field.vocab = tag_vocab
+        test_dataset = TabularDataset(path=os.path.join(data_path, 'test.csv'),
+                                      format='csv',
+                                      fields=data_fields,
+                                      skip_header=True)
+        test_iter = to_iter(test_dataset, word_to_ix['<pad>'], 1)
+        return test_iter
+
 
 def get_char_to_ix(dataset):
     #we will create a dummy csv and dataset so that we end up with a Vocab object that we can use as our char_to_ix map

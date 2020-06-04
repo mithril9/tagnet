@@ -20,7 +20,8 @@ class LSTMTagger(nn.Module):
         self.lstm = nn.LSTM(embedding_dim + (char_hidden_dim*2), hidden_dim, num_layers=2, batch_first=True, bidirectional=True)
         self.char_lstm = nn.LSTM(char_embedding_dim, char_hidden_dim, batch_first=True, bidirectional=True)
         # The linear layer that maps from hidden state space to tag space
-        self.hidden2tag = nn.Linear(hidden_dim*2, tagset_size)
+        self.linear1 = nn.Linear(hidden_dim*2, hidden_dim)
+        self.hidden2tag = nn.Linear(hidden_dim, tagset_size)
 
     def init_hidden(self, sent_batch_size):
         # The axes semantics are (num_layers*2, minibatch_size, hidden_dim)
@@ -32,7 +33,7 @@ class LSTMTagger(nn.Module):
         self.char_hidden = (torch.zeros(2, word_batch_size, self.char_hidden_dim),
                 torch.zeros(2, word_batch_size, self.char_hidden_dim))
 
-    def forward(self, sentences, words, char_embedding_dim, char_hidden_dim, sent_lengths, word_batch_size, eval=False):
+    def forward(self, sentences, words, char_embedding_dim, char_hidden_dim, sent_lengths, word_batch_size):
         sent_batch_size = sentences.shape[0]
         sent_len = sentences.shape[1]
         embeds = self.word_embeddings(sentences)
@@ -52,6 +53,7 @@ class LSTMTagger(nn.Module):
         lstm_out = lstm_out.contiguous()
         #flatten out batches and pass all sentences to Linear layer as one big sequence (i.e. each word is a batch)
         lstm_out = lstm_out.view(sent_batch_size*sent_len, lstm_out.shape[2])
-        tag_logits = self.hidden2tag(lstm_out)
+        linear1_out = F.relu(self.linear1(lstm_out))
+        tag_logits = self.hidden2tag(linear1_out)
         tag_logits = tag_logits.view(sent_batch_size*sent_len, -1)
         return tag_logits

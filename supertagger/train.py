@@ -12,15 +12,28 @@ import torch.nn.functional as F
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import matplotlib.pyplot as plt
 from time import gmtime, strftime
+from file_handler import *
+from utils import *
+import copy
 
 models_folder = 'models'
 
 
 def main(data_path, saved_model_path):
-    train_iter, val_iter, word_to_ix, ix_to_word, tag_to_ix, ix_to_tag, char_to_ix = create_datasets(data_path)
+    if saved_model_path:
+        global EMBEDDING_DIM, CHAR_EMBEDDING_DIM, HIDDEN_DIM, CHAR_HIDDEN_DIM
+        EMBEDDING_DIM, CHAR_EMBEDDING_DIM, HIDDEN_DIM, CHAR_HIDDEN_DIM = load_hyper_params(saved_model_path)
+    train_iter, \
+    val_iter, \
+    word_vocab, \
+    tag_vocab, \
+    char_to_ix = create_datasets(data_path, mode='train')
+    #char_to_ix gets added to automatically with any characters (e.g. < >) encountered during evaluation, but we want to
+    #save the original copy so that the char embeddings para can be computed, hence we create a copy here.
+    char_to_ix_copy = copy.deepcopy(char_to_ix)
+    word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = word_vocab.stoi, word_vocab.itos, tag_vocab.stoi, tag_vocab.itos
     model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,\
                        len(char_to_ix))
-    #loss_function = nn.NLLLoss()
     loss_function = torch.nn.CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
     optimizer = optim.Adam(model.parameters(), lr=0.01)
     if models_folder not in os.listdir("../"):
@@ -85,7 +98,7 @@ def main(data_path, saved_model_path):
                 targets = batch.tags.permute(1,0).reshape(sent_batch_size*word_batch_size)
                 y_true += [ix_to_tag[ix.item()] for ix in targets]
                 words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
-                tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, val_iter.sent_lengths[batch_num-1], word_batch_size, eval=True)
+                tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, val_iter.sent_lengths[batch_num-1], word_batch_size)
                 eval_loss = loss_function(tag_logits, targets)
                 eval_losses.append(round(eval_loss.item(), 2))
                 pred = categoriesFromOutput(tag_logits, ix_to_tag)
@@ -94,7 +107,8 @@ def main(data_path, saved_model_path):
             if av_eval_losses[-1] < lowest_av_eval_loss:
                 lowest_av_eval_loss = av_eval_losses[-1]
                 save_model(epoch + 1 + checkpoint_epoch, model, optimizer, loss, av_train_losses, av_eval_losses,
-                           model_file_name)
+                           model_file_name, word_vocab, tag_vocab, char_to_ix_copy, models_folder,
+                           EMBEDDING_DIM, CHAR_EMBEDDING_DIM, HIDDEN_DIM, CHAR_HIDDEN_DIM)
             accuracy = accuracy_score(y_true, y_pred)
             micro_precision, micro_recall, micro_f1, support = precision_recall_fscore_support(y_true, y_pred,
                                                                                                         average='micro')
@@ -114,42 +128,6 @@ def main(data_path, saved_model_path):
     plt.plot(av_eval_losses, label='eval')
     plt.legend(loc='upper left')
     plt.show()
-
-
-def load_model(model, optimizer, model_path):
-    print("Attempting to load saved model checkpoint from: "+model_path)
-    checkpoint = torch.load(os.path.join("../models", model_path))
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    print("Successfully loaded model..")
-    return checkpoint['av_train_losses'], checkpoint['av_eval_losses'], checkpoint['checkpoint_epoch'], checkpoint['loss']
-
-
-def save_model(epoch, model, optimizer, loss, av_train_losses, av_eval_losses, model_file_name):
-    try:
-        os.remove("../"+os.path.join(models_folder, model_file_name))
-    except FileNotFoundError:
-        pass
-    torch.save({
-            'checkpoint_epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': loss,
-            'av_train_losses': av_train_losses,
-            'av_eval_losses': av_eval_losses
-    }, "../"+os.path.join(models_folder, model_file_name))
-    print("Model with lowest average eval loss successfully saved as: "+"../"+os.path.join(models_folder, model_file_name))
-
-
-def categoriesFromOutput(tag_scores, ix_to_tag):
-    predictions = []
-    top_n, top_i = tag_scores.topk(1, dim=1)
-    #unroll all batches into one long sequence for convenience
-    top_i = top_i.view(top_i.shape[0]*top_i.shape[1])
-    for prediction in top_i:
-        pred = ix_to_tag[prediction.item()]
-        predictions.append(pred)
-    return predictions
 
 
 if __name__ == '__main__':

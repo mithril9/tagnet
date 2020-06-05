@@ -2,17 +2,12 @@
 
 from lstm_model import LSTMTagger
 from prepare_data import *
-import torch.nn as nn
 import torch.optim as optim
 import argparse
-import os
-import pdb, json
-import torch.nn.functional as F
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-import matplotlib.pyplot as plt
-from time import gmtime, strftime
 from file_handler import *
 from utils import *
+import copy
 
 models_folder = 'models'
 
@@ -21,12 +16,11 @@ def main(data_path, saved_model_path):
     EMBEDDING_DIM, CHAR_EMBEDDING_DIM, HIDDEN_DIM, CHAR_HIDDEN_DIM = load_hyper_params(saved_model_path)
     word_vocab, tag_vocab, char_to_ix = load_vocab_and_char_to_ix(saved_model_path)
     word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = word_vocab.stoi, word_vocab.itos, tag_vocab.stoi, tag_vocab.itos
-    test_iter = create_datasets(data_path, mode='test', word_to_ix=word_to_ix, word_vocab=word_vocab, tag_vocab=tag_vocab)
+    test_iter = create_datasets(data_path, mode='test', word_to_ix=copy.deepcopy(word_to_ix), word_vocab=copy.deepcopy(word_vocab), tag_vocab=copy.deepcopy(tag_vocab))
     model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,\
                        len(char_to_ix))
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
     loss_function = torch.nn.CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
-    _, _, _, _ = load_model(model, optimizer, saved_model_path)
+    load_model(model=model, saved_model_path=saved_model_path)
     #torch.autograd.set_detect_anomaly(True)
     print("testing model: "+saved_model_path+'\n')
     model.eval()

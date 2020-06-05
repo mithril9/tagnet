@@ -33,13 +33,13 @@ def main(data_path, saved_model_path):
     char_to_ix_copy = copy.deepcopy(char_to_ix)
     word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = word_vocab.stoi, word_vocab.itos, tag_vocab.stoi, tag_vocab.itos
     model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,\
-                       len(char_to_ix))
+                       len(char_to_ix), dropout=dropout)
     loss_function = torch.nn.CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     if models_folder not in os.listdir("../"):
         os.mkdir("../"+models_folder)
     if saved_model_path:
-        av_train_losses, av_eval_losses, checkpoint_epoch, loss = load_model(model, optimizer, saved_model_path)
+        av_train_losses, av_eval_losses, checkpoint_epoch, loss = load_model(model=model, saved_model_path=saved_model_path, optimizer=optimizer,)
         lowest_av_eval_loss  = min(av_eval_losses)
         model_file_name = os.path.split(saved_model_path)[1]
     else:
@@ -122,6 +122,7 @@ def main(data_path, saved_model_path):
             print("Weighted Macro Precision: {}".format(weighted_macro_precision))
             print("Weighted Macro Recall: {}".format(weighted_macro_recall))
             print("Weighted Macro F1: {}".format(weighted_macro_f1))
+    #REPORT FINAL BEST SCORES HERE!!!!!!!!!!!!!!!!!!!!!!
     plt.xlabel("n epochs")
     plt.ylabel("loss")
     plt.plot(av_train_losses, label='train')

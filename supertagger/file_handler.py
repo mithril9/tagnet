@@ -5,22 +5,25 @@ import os, pdb
 
 def load_vocab_and_char_to_ix(saved_model_path):
     print("Attempting to load saved ix mappings from: " + saved_model_path)
-    checkpoint = torch.load(os.path.join("../models", saved_model_path))
+    checkpoint = torch.load(saved_model_path)
     return checkpoint['word_vocab'], checkpoint['tag_vocab'], checkpoint['char_to_ix']
 
 
-def load_model(model, optimizer, saved_model_path):
+def load_model(model, saved_model_path, optimizer=None):
     print("Attempting to load saved model checkpoint from: " + saved_model_path)
-    checkpoint = torch.load(os.path.join("../models", saved_model_path))
+    checkpoint = torch.load(saved_model_path)
     model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     print("Successfully loaded model..")
-    return checkpoint['av_train_losses'], checkpoint['av_eval_losses'], checkpoint['checkpoint_epoch'], \
-           checkpoint['loss']
+    if not optimizer:
+        return
+    else:
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        return checkpoint['av_train_losses'], checkpoint['av_eval_losses'], checkpoint['checkpoint_epoch'], \
+                checkpoint['loss']
 
 def load_hyper_params(saved_model_path):
     print("Attempting to load saved hyperparameters from: " + saved_model_path)
-    checkpoint = torch.load(os.path.join("../models", saved_model_path))
+    checkpoint = torch.load(saved_model_path)
     return checkpoint['EMBEDDING_DIM'], checkpoint['CHAR_EMBEDDING_DIM'], checkpoint['HIDDEN_DIM'], \
            checkpoint['CHAR_HIDDEN_DIM']
 

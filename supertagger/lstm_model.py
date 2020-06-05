@@ -9,7 +9,7 @@ import pdb
 class LSTMTagger(nn.Module):
 
     def __init__(self, embedding_dim, hidden_dim, vocab_size, tagset_size, char_embedding_dim, char_hidden_dim,
-                 char_vocab_size):
+                 char_vocab_size, dropout=0):
         super(LSTMTagger, self).__init__()
         self.hidden_dim = hidden_dim
         self.char_hidden_dim = char_hidden_dim
@@ -17,7 +17,7 @@ class LSTMTagger(nn.Module):
         self.char_embeddings = nn.Embedding(char_vocab_size, char_embedding_dim)
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
-        self.lstm = nn.LSTM(embedding_dim + (char_hidden_dim*2), hidden_dim, num_layers=2, batch_first=True, bidirectional=True)
+        self.lstm = nn.LSTM(embedding_dim + (char_hidden_dim*2), hidden_dim, num_layers=2, batch_first=True, bidirectional=True, dropout=dropout)
         self.char_lstm = nn.LSTM(char_embedding_dim, char_hidden_dim, batch_first=True, bidirectional=True)
         # The linear layer that maps from hidden state space to tag space
         self.linear1 = nn.Linear(hidden_dim*2, hidden_dim)

@@ -1,5 +1,6 @@
 """Useful utility functions"""
 
+import matplotlib.pyplot as plt
 
 def categoriesFromOutput(tag_scores, ix_to_tag):
     predictions = []
@@ -10,3 +11,11 @@ def categoriesFromOutput(tag_scores, ix_to_tag):
         pred = ix_to_tag[prediction.item()]
         predictions.append(pred)
     return predictions
+
+def plot_train_eval_loss(av_train_losses, av_eval_losses):
+    plt.xlabel("n epochs")
+    plt.ylabel("loss")
+    plt.plot(av_train_losses, label='train')
+    plt.plot(av_eval_losses, label='eval')
+    plt.legend(loc='upper left')
+    plt.show()

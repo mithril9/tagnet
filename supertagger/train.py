@@ -3,14 +3,11 @@
 from lstm_model import LSTMTagger
 from config import *
 from prepare_data import *
-import torch.nn as nn
 import torch.optim as optim
 import argparse
 import os
 import pdb, json
-import torch.nn.functional as F
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-import matplotlib.pyplot as plt
 from time import gmtime, strftime
 from file_handler import *
 from utils import *
@@ -39,8 +36,9 @@ def main(data_path, saved_model_path):
     if models_folder not in os.listdir("../"):
         os.mkdir("../"+models_folder)
     if saved_model_path:
-        av_train_losses, av_eval_losses, checkpoint_epoch, loss = load_model(model=model, saved_model_path=saved_model_path, optimizer=optimizer,)
-        lowest_av_eval_loss  = min(av_eval_losses)
+        av_train_losses, av_eval_losses, checkpoint_epoch, loss, best_accuracy, lowest_av_eval_loss, \
+        best_micro_precision, best_micro_recall, best_micro_f1, best_weighted_macro_precision, best_weighted_macro_recall, \
+        best_weighted_macro_f1 = load_model(model=model, saved_model_path=saved_model_path, optimizer=optimizer)
         model_file_name = os.path.split(saved_model_path)[1]
     else:
         checkpoint_epoch = 0
@@ -51,16 +49,18 @@ def main(data_path, saved_model_path):
     #torch.autograd.set_detect_anomaly(True)
     print("training..\n")
     model.train()
-    for epoch in range(num_epochs):  # again, normally you would NOT do 300 epochs, it is toy data
+    start_epoch = checkpoint_epoch+1
+    end_epoch = checkpoint_epoch+num_epochs
+    for epoch in range(start_epoch, end_epoch+1):  # again, normally you would NOT do 300 epochs, it is toy data
         print('===============================')
-        print('\n======== Epoch {} / {} ========'.format(epoch + 1 + checkpoint_epoch, num_epochs+checkpoint_epoch))
+        print('\n======== Epoch {} / {} ========'.format(epoch, end_epoch))
         batch_num = 0
         train_losses = []
         for batch in train_iter:
             batch_num += 1
             if batch_num % 20 == 0 or batch_num == 1:
                 if batch_num != 1:
-                    print("\nAverage Training loss for epoch {} at end of batch {}: {}".format(epoch + checkpoint_epoch, str(batch_num-1),sum(train_losses)/len(train_losses)))
+                    print("\nAverage Training loss for epoch {} at end of batch {}: {}".format(epoch-1, str(batch_num-1),sum(train_losses)/len(train_losses)))
                 print('\n======== Batch {} / {} ========'.format(batch_num, len(train_iter)))
             # Step 1. Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
@@ -80,55 +80,88 @@ def main(data_path, saved_model_path):
             train_losses.append(round(loss.item(), 2))
             loss.backward()
             optimizer.step()
-        av_train_losses.append(sum(train_losses)/len(train_losses))
-        # Evaluate the model
-        model.eval()
-        y_pred = []
-        y_true = []
-        print("\nEvaluating model...")
-        with torch.no_grad():
-            batch_num = 0
-            eval_losses = []
-            for batch in val_iter:
-                batch_num += 1
-                word_batch_size = batch.sentence.shape[0]
-                sent_batch_size = batch.sentence.shape[1]
-                model.init_hidden(sent_batch_size)
-                sentences_in = batch.sentence.permute(1, 0)
-                targets = batch.tags.permute(1,0).reshape(sent_batch_size*word_batch_size)
-                y_true += [ix_to_tag[ix.item()] for ix in targets]
-                words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
-                tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, val_iter.sent_lengths[batch_num-1], word_batch_size)
-                eval_loss = loss_function(tag_logits, targets)
-                eval_losses.append(round(eval_loss.item(), 2))
-                pred = categoriesFromOutput(tag_logits, ix_to_tag)
-                y_pred += pred
-            av_eval_losses.append(sum(eval_losses)/len(eval_losses))
-            if av_eval_losses[-1] < lowest_av_eval_loss:
-                lowest_av_eval_loss = av_eval_losses[-1]
-                save_model(epoch + 1 + checkpoint_epoch, model, optimizer, loss, av_train_losses, av_eval_losses,
-                           model_file_name, word_vocab, tag_vocab, char_to_ix_copy, models_folder,
-                           EMBEDDING_DIM, CHAR_EMBEDDING_DIM, HIDDEN_DIM, CHAR_HIDDEN_DIM)
-            accuracy = accuracy_score(y_true, y_pred)
-            micro_precision, micro_recall, micro_f1, support = precision_recall_fscore_support(y_true, y_pred,
-                                                                                                        average='micro')
-            weighted_macro_precision, weighted_macro_recall, weighted_macro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted')
-            av_epoch_eval_loss = sum(eval_losses)/len(eval_losses)
-            print("Eval accuracy at end of epoch {}: {:.2f}%".format(epoch + 1 + checkpoint_epoch, accuracy*100))
-            print("Average Eval loss for epoch {}: {}".format(epoch + 1 + checkpoint_epoch, str(av_epoch_eval_loss)))
-            print("Micro Precision: {}".format(micro_precision))
-            print("Micro Recall: {}".format(micro_recall))
-            print("Micro F1: {}".format(micro_f1))
-            print("Weighted Macro Precision: {}".format(weighted_macro_precision))
-            print("Weighted Macro Recall: {}".format(weighted_macro_recall))
-            print("Weighted Macro F1: {}".format(weighted_macro_f1))
-    #REPORT FINAL BEST SCORES HERE!!!!!!!!!!!!!!!!!!!!!!
-    plt.xlabel("n epochs")
-    plt.ylabel("loss")
-    plt.plot(av_train_losses, label='train')
-    plt.plot(av_eval_losses, label='eval')
-    plt.legend(loc='upper left')
-    plt.show()
+        av_train_losses.append(sum(train_losses) / len(train_losses))
+        accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, \
+        weighted_macro_recall, weighted_macro_f1 = eval_model(model, loss_function, val_iter, char_to_ix, ix_to_word,
+                                                              ix_to_tag, av_eval_losses, lowest_av_eval_loss, epoch)
+        print_results(epoch, accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, weighted_macro_recall, weighted_macro_f1)
+        if av_eval_losses[-1] < lowest_av_eval_loss:
+            lowest_av_eval_loss = av_eval_losses[-1]
+            best_accuracy, \
+            best_micro_precision, \
+            best_micro_recall, \
+            best_micro_f1, \
+            best_weighted_macro_precision, \
+            best_weighted_macro_recall, \
+            best_weighted_macro_f1 = accuracy, \
+                                     micro_precision, \
+                                     micro_recall, \
+                                     micro_f1, \
+                                     weighted_macro_precision, \
+                                     weighted_macro_recall, \
+                                     weighted_macro_f1
+            checkpoint_epoch = epoch
+            save_model(checkpoint_epoch, model, optimizer, loss, av_train_losses, av_eval_losses, model_file_name, word_vocab,
+                       tag_vocab, char_to_ix_copy, models_folder, EMBEDDING_DIM, CHAR_EMBEDDING_DIM, HIDDEN_DIM,
+                       CHAR_HIDDEN_DIM, best_accuracy, lowest_av_eval_loss, best_micro_precision, best_micro_recall,
+                       best_micro_f1, best_weighted_macro_precision, best_weighted_macro_recall, best_weighted_macro_f1)
+    print_results(checkpoint_epoch, best_accuracy, lowest_av_eval_loss, best_micro_precision, best_micro_recall,
+                  best_micro_f1, best_weighted_macro_precision, best_weighted_macro_recall, best_weighted_macro_f1, final=True)
+    plot_train_eval_loss(av_train_losses, av_eval_losses)
+
+def eval_model(model, loss_function, val_iter, char_to_ix, ix_to_word, ix_to_tag, av_eval_losses, lowest_av_eval_loss, epoch):
+    # Evaluate the model
+    model.eval()
+    y_pred = []
+    y_true = []
+    print("\nEvaluating model...")
+    with torch.no_grad():
+        batch_num = 0
+        eval_losses = []
+        for batch in val_iter:
+            batch_num += 1
+            word_batch_size = batch.sentence.shape[0]
+            sent_batch_size = batch.sentence.shape[1]
+            model.init_hidden(sent_batch_size)
+            sentences_in = batch.sentence.permute(1, 0)
+            targets = batch.tags.permute(1, 0).reshape(sent_batch_size * word_batch_size)
+            y_true += [ix_to_tag[ix.item()] for ix in targets]
+            words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
+            tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,
+                               val_iter.sent_lengths[batch_num - 1], word_batch_size)
+            eval_loss = loss_function(tag_logits, targets)
+            eval_losses.append(round(eval_loss.item(), 2))
+            pred = categoriesFromOutput(tag_logits, ix_to_tag)
+            y_pred += pred
+        av_eval_losses.append(sum(eval_losses) / len(eval_losses))
+        accuracy = accuracy_score(y_true, y_pred)
+        micro_precision, micro_recall, micro_f1, support = precision_recall_fscore_support(y_true, y_pred,
+                                                                                           average='micro')
+        weighted_macro_precision, weighted_macro_recall, weighted_macro_f1, _ = precision_recall_fscore_support(y_true,
+                                                                                                                y_pred,
+                                                                                                                average='weighted')
+        av_epoch_eval_loss = sum(eval_losses) / len(eval_losses)
+
+    return accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, \
+           weighted_macro_recall, weighted_macro_f1
+
+def print_results(epoch, accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1,
+                  weighted_macro_precision, weighted_macro_recall, weighted_macro_f1, final=False):
+    if not final:
+        print("\nEval results at end of epoch {}".format(epoch)+":\n")
+    else:
+        print("\nBest eval results were obtained on epoch {} and are shown below:\n".format(epoch))
+    try:
+        print("Eval accuracy at end of epoch {}: {:.2f}%".format(epoch, accuracy * 100))
+    except Exception:
+        pdb.set_trace()
+    print("Average Eval loss for epoch {}: {}".format(epoch, str(av_epoch_eval_loss)))
+    print("Micro Precision: {}".format(micro_precision))
+    print("Micro Recall: {}".format(micro_recall))
+    print("Micro F1: {}".format(micro_f1))
+    print("Weighted Macro Precision: {}".format(weighted_macro_precision))
+    print("Weighted Macro Recall: {}".format(weighted_macro_recall))
+    print("Weighted Macro F1: {}".format(weighted_macro_f1))
 
 
 if __name__ == '__main__':

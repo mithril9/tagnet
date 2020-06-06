@@ -8,21 +8,20 @@ from typing import List,  Tuple
 #from sklearn.model_selection import train_test_split
 import pandas as pd
 from config import batch_size
+from utils import *
+from typing import DefaultDict
+
 
 def create_datasets(data_path, mode, word_to_ix=None, word_vocab=None, tag_vocab=None):
     sent_field = Field(lower=True)
     tag_field = Field()
-    if mode == 'tag':
-        data_fields = [('sentence', sent_field)]
-        create_csv(data_path, mode=mode)
-    else:
-        data_fields = [('sentence', sent_field), ('tags', tag_field)]
-        if mode == 'train':
-            dataSetNames = ['train', 'val']
-        elif mode == 'test':
-            dataSetNames = ['test']
-        for data_set in dataSetNames:
-            create_csv(os.path.join(data_path, data_set), mode=mode)
+    data_fields = [('sentence', sent_field), ('tags', tag_field)]
+    if mode == 'train':
+        dataSetNames = ['train', 'val']
+    elif mode == 'test':
+        dataSetNames = ['test']
+    for data_set in dataSetNames:
+        create_csv(os.path.join(data_path, data_set))
     if mode == 'train':
         train_dataset, val_dataset = TabularDataset.splits(path=data_path,
                                                            train='train.csv',
@@ -46,14 +45,6 @@ def create_datasets(data_path, mode, word_to_ix=None, word_vocab=None, tag_vocab
                                       skip_header=True)
         test_iter = to_iter(test_dataset, word_to_ix['<pad>'], 1)
         return test_iter
-    elif mode == 'tag':
-        sent_field.vocab = word_vocab
-        sent_dataset = TabularDataset(path=data_path+'.csv',
-                                      format='csv',
-                                      fields=data_fields,
-                                      skip_header=True)
-        sent_iter = to_iter(sent_dataset, word_to_ix['<pad>'], 1)
-        return sent_iter
 
 
 def get_char_to_ix(dataset):
@@ -91,19 +82,14 @@ def to_iter(dataset, pad_ix, batch_size, bucket=True):
     return data_iter
 
 
-def create_csv(data_path, mode):
-    if mode == 'tag':
-        from nltk.tokenize import word_tokenize
-        raw_sentences = [" ".join(tok_sent) for tok_sent in [word_tokenize(sent) for sent in open(data_path).readlines()]]
-        raw_data = {'sentence': [sent.strip() for sent in raw_sentences if sent != '']}
-        df = pd.DataFrame(raw_data, columns=["sentence"])
-    else:
-        raw_sentences = open(data_path + ".words").readlines()
-        raw_tag_sequences = open(data_path+".tags").readlines()
-        raw_data = {'sentence': [sent.strip() for sent in raw_sentences if sent != ''],
-                    'tags': [tag_seq.strip() for tag_seq in raw_tag_sequences if tag_seq != '']}
-        df = pd.DataFrame(raw_data, columns=["sentence", "tags"])
+def create_csv(data_path):
+    raw_sentences = open(data_path + ".words").readlines()
+    raw_tag_sequences = open(data_path+".tags").readlines()
+    raw_data = {'sentence': [sent.strip() for sent in raw_sentences if sent != ''],
+                'tags': [tag_seq.strip() for tag_seq in raw_tag_sequences if tag_seq != '']}
+    df = pd.DataFrame(raw_data, columns=["sentence", "tags"])
     df.to_csv(data_path+".csv", index=False)
+
 
 def create_char_ix_mappings(train_dataset):
     char_to_ix = {}
@@ -115,9 +101,16 @@ def create_char_ix_mappings(train_dataset):
     return char_to_ix
 
 
+def prepare_untagged_data(data_path: str, word_to_ix: DefaultDict[str, int]):
+    sentences = [tokenize(line) for line in open(data_path).readlines()]
+    sent_tensors = [prepare_sequence(sent, word_to_ix).view(1,-1) for sent in sentences]
+    return sentences, sent_tensors
+
+
 def prepare_sequence(seq, to_ix):
     idxs = [to_ix[w] for w in seq]
     return torch.tensor(idxs, dtype=torch.long)
+
 
 def get_words_in(sentences_in, char_to_ix, ix_to_word):
     words_in = []
@@ -125,6 +118,7 @@ def get_words_in(sentences_in, char_to_ix, ix_to_word):
         words_in.append([prepare_sequence(word, char_to_ix) for word in [ix_to_word[ix] for ix in sentences_in[i, :]]])
         words_in[-1] = batchify_sent(words_in[-1])
     return words_in
+
 
 def batchify_sent(sent):
     #we need to pad the words in the sentence so that they all have the same number of characters

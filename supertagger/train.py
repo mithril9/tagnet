@@ -66,8 +66,8 @@ def main(data_path: str, saved_model_path: str) -> None:
             batch_num += 1
             if batch_num % 20 == 0 or batch_num == 1:
                 if batch_num != 1:
-                    print("\nAverage Training loss for epoch {} at end of batch {}: {}".format(epoch-1, str(batch_num-1),sum(train_losses)/len(train_losses)))
-                print('\n======== Batch {} / {} ========'.format(batch_num, len(train_iter)))
+                    print("\nAverage Training loss for epoch {} at end of batch {}: {}".format(epoch, str(batch_num-1),sum(train_losses)/len(train_losses)))
+                print('\n======== at batch {} / {} ========'.format(batch_num, len(train_iter)))
             # Step 1. Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
             model.zero_grad()
@@ -79,7 +79,12 @@ def main(data_path: str, saved_model_path: str) -> None:
             targets = batch.tags.permute(1,0).reshape(sent_batch_size*word_batch_size)
             words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
             # Step 3. Run our forward pass.
-            tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, train_iter.sent_lengths[batch_num-1], word_batch_size)
+            tag_logits = model(sentences=sentences_in,
+                               words=words_in,
+                               char_embedding_dim=CHAR_EMBEDDING_DIM,
+                               char_hidden_dim=CHAR_HIDDEN_DIM,
+                               sent_lengths=train_iter.sent_lengths[batch_num-1],
+                               word_batch_size=word_batch_size)
             # Step 4. Compute the loss, gradients, and update the parameters by
             #  calling optimizer.step()
             loss = loss_function(tag_logits, targets)
@@ -140,8 +145,12 @@ def eval_model(model: LSTMTagger,
             targets = batch.tags.permute(1, 0).reshape(sent_batch_size * word_batch_size)
             y_true += [ix_to_tag[ix.item()] for ix in targets]
             words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
-            tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,
-                               val_iter.sent_lengths[batch_num - 1], word_batch_size)
+            tag_logits = model(sentences=sentences_in,
+                               words=words_in,
+                               char_embedding_dim=CHAR_EMBEDDING_DIM,
+                               char_hidden_dim=CHAR_HIDDEN_DIM,
+                               sent_lengths=val_iter.sent_lengths[batch_num - 1],
+                               word_batch_size=word_batch_size)
             eval_loss = loss_function(tag_logits, targets)
             eval_losses.append(round(eval_loss.item(), 2))
             pred = categoriesFromOutput(tag_logits, ix_to_tag)

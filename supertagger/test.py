@@ -38,7 +38,12 @@ def main(data_path, saved_model_path):
             targets = batch.tags.permute(1,0).reshape(sent_batch_size*word_batch_size)
             y_true += [ix_to_tag[ix.item()] for ix in targets]
             words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
-            tag_logits = model(sentences_in, words_in, CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM, test_iter.sent_lengths[batch_num-1], word_batch_size)
+            tag_logits = model(sentences=sentences_in,
+                               words=words_in,
+                               char_embedding_dim=CHAR_EMBEDDING_DIM,
+                               char_hidden_dim=CHAR_HIDDEN_DIM,
+                               sent_lengths=test_iter.sent_lengths[batch_num-1],
+                               word_batch_size=word_batch_size)
             test_loss = loss_function(tag_logits, targets)
             test_losses.append(round(test_loss.item(), 2))
             pred = categoriesFromOutput(tag_logits, ix_to_tag)

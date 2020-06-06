@@ -1,6 +1,7 @@
 """Useful utility functions"""
 
 import matplotlib.pyplot as plt
+from nltk.tokenize import word_tokenize
 
 def categoriesFromOutput(tag_scores, ix_to_tag):
     predictions = []
@@ -19,3 +20,6 @@ def plot_train_eval_loss(av_train_losses, av_eval_losses):
     plt.plot(av_eval_losses, label='eval')
     plt.legend(loc='upper left')
     plt.show()
+
+def tokenize(sent: str):
+    return word_tokenize(sent)

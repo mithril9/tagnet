@@ -12,11 +12,11 @@ models_folder = 'models'
 
 
 def main(data_path, saved_model_path):
-    EMBEDDING_DIM, CHAR_EMBEDDING_DIM, HIDDEN_DIM, CHAR_HIDDEN_DIM = load_hyper_params(saved_model_path)
+    embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim = load_hyper_params(saved_model_path)
     word_vocab, tag_vocab, char_to_ix = load_vocab_and_char_to_ix(saved_model_path)
     word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = word_vocab.stoi, word_vocab.itos, tag_vocab.stoi, tag_vocab.itos
     test_iter = create_datasets(data_path, mode='test', word_to_ix=copy.deepcopy(word_to_ix), word_vocab=copy.deepcopy(word_vocab), tag_vocab=copy.deepcopy(tag_vocab))
-    model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,\
+    model = LSTMTagger(embedding_dim, hidden_dim, len(word_to_ix), len(tag_to_ix), char_embedding_dim, char_hidden_dim,\
                        len(char_to_ix))
     loss_function = torch.nn.CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
     load_model(model=model, saved_model_path=saved_model_path)
@@ -40,8 +40,7 @@ def main(data_path, saved_model_path):
             words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
             tag_logits = model(sentences=sentences_in,
                                words=words_in,
-                               char_embedding_dim=CHAR_EMBEDDING_DIM,
-                               char_hidden_dim=CHAR_HIDDEN_DIM,
+                               char_hidden_dim=char_hidden_dim,
                                sent_lengths=test_iter.sent_lengths[batch_num-1],
                                word_batch_size=word_batch_size)
             test_loss = loss_function(tag_logits, targets)

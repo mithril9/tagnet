@@ -1,39 +1,88 @@
 """Code for training the model"""
 
 import torch
+from torch.optim.adam import Adam
 import os, pdb
+from torchtext.vocab import Vocab
+from typing import DefaultDict, Union, Tuple, Optional, List
+from lstm_model import LSTMTagger
+from numpy import float64
+from torchtext.vocab import Vocab
 
-def load_vocab_and_char_to_ix(saved_model_path):
+loadModelReturn = Tuple[List[float],
+                        List[float],
+                        int,
+                        float64,
+                        float,
+                        float64,
+                        float64,
+                        float64,
+                        float64,
+                        float64,
+                        float64]
+
+def load_vocab_and_char_to_ix(saved_model_path: str) -> Tuple[Vocab, Vocab, DefaultDict[str, int]]:
     print("Attempting to load saved ix mappings from: " + saved_model_path)
     checkpoint = torch.load(saved_model_path)
-    return checkpoint['word_vocab'], checkpoint['tag_vocab'], checkpoint['char_to_ix']
+    return checkpoint['word_vocab'], \
+           checkpoint['tag_vocab'], \
+           checkpoint['char_to_ix']
 
 
-def load_model(model, saved_model_path, optimizer=None):
+def load_model(model: LSTMTagger,
+               saved_model_path: str,
+               optimizer: Optional[Adam] = None
+               ) -> Optional[loadModelReturn]:
     print("Attempting to load saved model checkpoint from: " + saved_model_path)
     checkpoint = torch.load(saved_model_path)
     model.load_state_dict(checkpoint['model_state_dict'])
     print("Successfully loaded model..")
     if not optimizer:
-        return
+        return None
     else:
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        return checkpoint['av_train_losses'], checkpoint['av_eval_losses'], checkpoint['checkpoint_epoch'], \
-               checkpoint['loss'], checkpoint['accuracy'], checkpoint['av_epoch_eval_loss'], \
-               checkpoint['micro_precision'], checkpoint['micro_recall'], checkpoint['micro_f1'], \
-               checkpoint['weighted_macro_precision'], checkpoint['weighted_macro_recall'], \
+        return checkpoint['av_train_losses'], \
+               checkpoint['av_eval_losses'], \
+               checkpoint['checkpoint_epoch'], \
+               checkpoint['accuracy'], \
+               checkpoint['av_epoch_eval_loss'], \
+               checkpoint['micro_precision'], \
+               checkpoint['micro_recall'], \
+               checkpoint['micro_f1'], \
+               checkpoint['weighted_macro_precision'], \
+               checkpoint['weighted_macro_recall'], \
                checkpoint['weighted_macro_f1']
 
-def load_hyper_params(saved_model_path):
+def load_hyper_params(saved_model_path: str) -> Tuple[int]:
     print("Attempting to load saved hyperparameters from: " + saved_model_path)
     checkpoint = torch.load(saved_model_path)
-    return checkpoint['EMBEDDING_DIM'], checkpoint['CHAR_EMBEDDING_DIM'], checkpoint['HIDDEN_DIM'], \
-           checkpoint['CHAR_HIDDEN_DIM']
+    return checkpoint['embedding_dim'], \
+           checkpoint['char_embedding_dim'], \
+           checkpoint['hidden_dim'], \
+           checkpoint['char_hidden_dim']
 
-def save_model(epoch, model, optimizer, loss, av_train_losses, av_eval_losses, model_file_name,
-               word_vocab, tag_vocab, char_to_ix, models_folder, EMBEDDING_DIM, CHAR_EMBEDDING_DIM, HIDDEN_DIM,
-               CHAR_HIDDEN_DIM, accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1,
-               weighted_macro_precision, weighted_macro_recall, weighted_macro_f1):
+def save_model(epoch: int,
+               model: LSTMTagger,
+               optimizer: Adam,
+               av_train_losses: List[float],
+               av_eval_losses: List[float],
+               model_file_name: str,
+               word_vocab: Vocab,
+               tag_vocab: Vocab,
+               char_to_ix: DefaultDict[str, int],
+               models_folder: str,
+               embedding_dim: int,
+               char_embedding_dim: int,
+               hidden_dim: int,
+               char_hidden_dim: int,
+               accuracy: float64,
+               av_epoch_eval_loss: float,
+               micro_precision: float64,
+               micro_recall: float64,
+               micro_f1: float64,
+               weighted_macro_precision: float64,
+               weighted_macro_recall: float64,
+               weighted_macro_f1: float64) -> None:
     try:
         os.remove("../"+os.path.join(models_folder, model_file_name))
     except FileNotFoundError:
@@ -42,16 +91,15 @@ def save_model(epoch, model, optimizer, loss, av_train_losses, av_eval_losses, m
             'checkpoint_epoch': epoch,
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
-            'loss': loss,
             'av_train_losses': av_train_losses,
             'av_eval_losses': av_eval_losses,
             'word_vocab': word_vocab,
             'tag_vocab': tag_vocab,
             'char_to_ix': char_to_ix,
-            'EMBEDDING_DIM': EMBEDDING_DIM,
-            'CHAR_EMBEDDING_DIM': CHAR_EMBEDDING_DIM,
-            'HIDDEN_DIM': HIDDEN_DIM,
-            'CHAR_HIDDEN_DIM': CHAR_HIDDEN_DIM,
+            'embedding_dim': embedding_dim,
+            'char_embedding_dim': char_embedding_dim,
+            'hidden_dim': hidden_dim,
+            'char_hidden_dim': char_hidden_dim,
             'accuracy': accuracy,
             'av_epoch_eval_loss': av_epoch_eval_loss,
             'micro_precision': micro_precision,

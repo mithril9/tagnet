@@ -5,11 +5,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import pdb
+from typing import List
 
 class LSTMTagger(nn.Module):
 
-    def __init__(self, embedding_dim, hidden_dim, vocab_size, tagset_size, char_embedding_dim, char_hidden_dim,
-                 char_vocab_size, dropout=0):
+    def __init__(self,
+                 embedding_dim: int,
+                 hidden_dim: int,
+                 vocab_size: int,
+                 tagset_size: int,
+                 char_embedding_dim: int,
+                 char_hidden_dim: int,
+                 char_vocab_size: int,
+                 dropout: float = 0) -> None:
         super(LSTMTagger, self).__init__()
         self.hidden_dim = hidden_dim
         self.char_hidden_dim = char_hidden_dim
@@ -23,17 +31,22 @@ class LSTMTagger(nn.Module):
         self.linear1 = nn.Linear(hidden_dim*2, hidden_dim)
         self.hidden2tag = nn.Linear(hidden_dim, tagset_size)
 
-    def init_hidden(self, sent_batch_size):
+    def init_hidden(self, sent_batch_size: int) ->  None:
         # The axes semantics are (num_layers*2, minibatch_size, hidden_dim)
         self.hidden = (torch.zeros(4, sent_batch_size, self.hidden_dim),
                 torch.zeros(4, sent_batch_size, self.hidden_dim))
 
-    def init_char_hidden(self, word_batch_size):
+    def init_char_hidden(self, word_batch_size: int) -> None:
         # The axes semantics are (num_layers, minibatch_size, hidden_dim)
         self.char_hidden = (torch.zeros(2, word_batch_size, self.char_hidden_dim),
                 torch.zeros(2, word_batch_size, self.char_hidden_dim))
 
-    def forward(self, sentences, words, char_embedding_dim, char_hidden_dim, sent_lengths, word_batch_size):
+    def forward(self,
+                sentences: torch.Tensor,
+                words: List[torch.Tensor],
+                char_hidden_dim: int,
+                sent_lengths: List[int],
+                word_batch_size: int) -> torch.Tensor:
         sent_batch_size = sentences.shape[0]
         sent_len = sentences.shape[1]
         embeds = self.word_embeddings(sentences)

@@ -18,33 +18,53 @@ from typing import Union, DefaultDict, List, Tuple
 from numpy import float64
 from collections import defaultdict
 
+evalModelReturn = Tuple[float64, float, float64, float64, float64, float64, float64, float64]
+
 models_folder = 'models'
 
 
 def main(data_path: str, saved_model_path: str) -> None:
     """The main training function"""
     if saved_model_path:
-        global EMBEDDING_DIM, CHAR_EMBEDDING_DIM, HIDDEN_DIM, CHAR_HIDDEN_DIM
-        EMBEDDING_DIM, CHAR_EMBEDDING_DIM, HIDDEN_DIM, CHAR_HIDDEN_DIM = load_hyper_params(saved_model_path)
+        global embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim
+        embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim = load_hyper_params(saved_model_path)
     train_iter, \
     val_iter, \
     word_vocab, \
     tag_vocab, \
-    char_to_ix = create_datasets(data_path, mode='train')
+    char_to_ix = create_datasets(data_path=data_path, mode='train')
     #char_to_ix gets added to automatically with any characters (e.g. < >) encountered during evaluation, but we want to
     #save the original copy so that the char embeddings para can be computed, hence we create a copy here.
     char_to_ix_copy = copy.deepcopy(char_to_ix)
     word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = word_vocab.stoi, word_vocab.itos, tag_vocab.stoi, tag_vocab.itos
-    model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,\
-                       len(char_to_ix), dropout=dropout)
+    model = LSTMTagger(
+        embedding_dim=embedding_dim,
+        hidden_dim=hidden_dim,
+        vocab_size=len(word_to_ix),
+        tag_set_size=len(tag_to_ix),
+        char_embedding_dim=char_embedding_dim,
+        char_hidden_dim=char_hidden_dim,
+        char_vocab_size=len(char_to_ix),
+        dropout=float(dropout)
+    )
     loss_function = CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     if models_folder not in os.listdir("../"):
         os.mkdir("../"+models_folder)
     if saved_model_path:
-        av_train_losses, av_eval_losses, checkpoint_epoch, loss, best_accuracy, lowest_av_eval_loss, \
-        best_micro_precision, best_micro_recall, best_micro_f1, best_weighted_macro_precision, best_weighted_macro_recall, \
-        best_weighted_macro_f1 = load_model(model=model, saved_model_path=saved_model_path, optimizer=optimizer)
+        av_train_losses, \
+        av_eval_losses, \
+        checkpoint_epoch, \
+        best_accuracy, \
+        lowest_av_eval_loss, \
+        best_micro_precision, \
+        best_micro_recall, \
+        best_micro_f1, \
+        best_weighted_macro_precision, \
+        best_weighted_macro_recall, \
+        best_weighted_macro_f1 = load_model(model=model,
+                                            saved_model_path=saved_model_path,
+                                            optimizer=optimizer)
         model_file_name = os.path.split(saved_model_path)[1]
     else:
         checkpoint_epoch = 0
@@ -81,8 +101,7 @@ def main(data_path: str, saved_model_path: str) -> None:
             # Step 3. Run our forward pass.
             tag_logits = model(sentences=sentences_in,
                                words=words_in,
-                               char_embedding_dim=CHAR_EMBEDDING_DIM,
-                               char_hidden_dim=CHAR_HIDDEN_DIM,
+                               char_hidden_dim=char_hidden_dim,
                                sent_lengths=train_iter.sent_lengths[batch_num-1],
                                word_batch_size=word_batch_size)
             # Step 4. Compute the loss, gradients, and update the parameters by
@@ -93,8 +112,13 @@ def main(data_path: str, saved_model_path: str) -> None:
             optimizer.step()
         av_train_losses.append(sum(train_losses) / len(train_losses))
         accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, \
-        weighted_macro_recall, weighted_macro_f1 = eval_model(model, loss_function, val_iter, char_to_ix, ix_to_word,
-                                                              ix_to_tag, av_eval_losses)
+        weighted_macro_recall, weighted_macro_f1 = eval_model(model=model,
+                                                              loss_function=loss_function,
+                                                              val_iter=val_iter,
+                                                              char_to_ix=char_to_ix,
+                                                              ix_to_word=ix_to_word,
+                                                              ix_to_tag=ix_to_tag,
+                                                              av_eval_losses=av_eval_losses)
         print_results(epoch, accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, weighted_macro_recall, weighted_macro_f1)
         if av_eval_losses[-1] < lowest_av_eval_loss:
             lowest_av_eval_loss = av_eval_losses[-1]
@@ -112,22 +136,53 @@ def main(data_path: str, saved_model_path: str) -> None:
                                      weighted_macro_recall, \
                                      weighted_macro_f1
             checkpoint_epoch = epoch
-            save_model(checkpoint_epoch, model, optimizer, loss, av_train_losses, av_eval_losses, model_file_name, word_vocab,
-                       tag_vocab, char_to_ix_copy, models_folder, EMBEDDING_DIM, CHAR_EMBEDDING_DIM, HIDDEN_DIM,
-                       CHAR_HIDDEN_DIM, best_accuracy, lowest_av_eval_loss, best_micro_precision, best_micro_recall,
-                       best_micro_f1, best_weighted_macro_precision, best_weighted_macro_recall, best_weighted_macro_f1)
-    print_results(checkpoint_epoch, best_accuracy, lowest_av_eval_loss, best_micro_precision, best_micro_recall,
-                  best_micro_f1, best_weighted_macro_precision, best_weighted_macro_recall, best_weighted_macro_f1, final=True)
+            save_model(
+                epoch=checkpoint_epoch,
+                model=model,
+                optimizer=optimizer,
+                av_train_losses=av_train_losses,
+                av_eval_losses=av_eval_losses,
+                model_file_name=model_file_name,
+                word_vocab=word_vocab,
+                tag_vocab=tag_vocab,
+                char_to_ix_copy=char_to_ix_copy,
+                models_folder=models_folder,
+                embedding_dim=embedding_dim,
+                char_embedding_dim=char_embedding_dim,
+                hidden_dim=hidden_dim,
+                char_hidden_dim=char_hidden_dim,
+                best_accuracy=best_accuracy,
+                lowest_av_eval_loss=lowest_av_eval_loss,
+                micro_precision=best_micro_precision,
+                micro_recall=best_micro_recall,
+                micro_f1=best_micro_f1,
+                weighted_macro_precision=best_weighted_macro_precision,
+                weighted_macro_recall=best_weighted_macro_recall,
+                weighted_macro_f1=best_weighted_macro_f1
+                )
+    print_results(
+        epoch=checkpoint_epoch,
+        best_accuracy=best_accuracy,
+        av_eval_loss=lowest_av_eval_loss,
+        micro_precision=best_micro_precision,
+        micro_recall=best_micro_recall,
+        micro_f1=best_micro_f1,
+        weighted_macro_precision=best_weighted_macro_precision,
+        weighted_macro_recall=best_weighted_macro_recall,
+        weighted_macro_f1=best_weighted_macro_f1,
+        final=True
+        )
     plot_train_eval_loss(av_train_losses, av_eval_losses)
 
-def eval_model(model: LSTMTagger,
-               loss_function: CrossEntropyLoss,
-               val_iter: BucketIterator,
-               char_to_ix: DefaultDict[str, int],
-               ix_to_word: List[str],
-               ix_to_tag: List[str],
-               av_eval_losses: List[str]) -> Tuple[float64, float, float64, float64,
-                                                   float64, float64, float64, float64]:
+def eval_model(
+        model: LSTMTagger,
+        loss_function: CrossEntropyLoss,
+        val_iter: BucketIterator,
+        char_to_ix: DefaultDict[str, int],
+        ix_to_word: List[str],
+        ix_to_tag: List[str],
+        av_eval_losses: List[str]
+) -> evalModelReturn:
     # Evaluate the model
     model.eval()
     y_pred = []
@@ -147,8 +202,7 @@ def eval_model(model: LSTMTagger,
             words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
             tag_logits = model(sentences=sentences_in,
                                words=words_in,
-                               char_embedding_dim=CHAR_EMBEDDING_DIM,
-                               char_hidden_dim=CHAR_HIDDEN_DIM,
+                               char_hidden_dim=char_hidden_dim,
                                sent_lengths=val_iter.sent_lengths[batch_num - 1],
                                word_batch_size=word_batch_size)
             eval_loss = loss_function(tag_logits, targets)
@@ -167,16 +221,19 @@ def eval_model(model: LSTMTagger,
     return accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, \
            weighted_macro_recall, weighted_macro_f1
 
-def print_results(epoch: int,
-                  accuracy: float64,
-                  av_epoch_eval_loss: float,
-                  micro_precision: float64,
-                  micro_recall: float64,
-                  micro_f1: float64,
-                  weighted_macro_precision: float64,
-                  weighted_macro_recall: float64,
-                  weighted_macro_f1: float64,
-                  final=False) -> None:
+
+def print_results(
+        epoch: int,
+        accuracy: float64,
+        av_epoch_eval_loss: float,
+        micro_precision: float64,
+        micro_recall: float64,
+        micro_f1: float64,
+        weighted_macro_precision: float64,
+        weighted_macro_recall: float64,
+        weighted_macro_f1: float64,
+        final=False
+) -> None:
     if not final:
         print("\nEval results at end of epoch {}".format(epoch)+":\n")
     else:

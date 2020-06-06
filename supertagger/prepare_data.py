@@ -2,6 +2,8 @@
 
 import torch
 from torchtext.data import Field, BucketIterator, Iterator, TabularDataset
+from torchtext.data.dataset import TabularDataset
+from torchtext.vocab import Vocab
 import pdb
 import os
 from typing import List,  Tuple
@@ -9,10 +11,13 @@ from typing import List,  Tuple
 import pandas as pd
 from config import batch_size
 from utils import *
-from typing import DefaultDict
+from typing import DefaultDict, Union
+
+createDatasetsReturnType = Union[Tuple[BucketIterator, BucketIterator, Vocab, Vocab, DefaultDict[str, int]],
+                                 Tuple[BucketIterator]]
 
 
-def create_datasets(data_path, mode, word_to_ix=None, word_vocab=None, tag_vocab=None):
+def create_datasets(data_path, mode, word_to_ix=None, word_vocab=None, tag_vocab=None) -> createDatasetsReturnType:
     sent_field = Field(lower=True)
     tag_field = Field()
     data_fields = [('sentence', sent_field), ('tags', tag_field)]
@@ -47,7 +52,7 @@ def create_datasets(data_path, mode, word_to_ix=None, word_vocab=None, tag_vocab
         return test_iter
 
 
-def get_char_to_ix(dataset):
+def get_char_to_ix(dataset: TabularDataset) -> DefaultDict[str, int]:
     #we will create a dummy csv and dataset so that we end up with a Vocab object that we can use as our char_to_ix map
     char_field = Field(lower=True)
     field_list = [('chars', char_field)]
@@ -67,7 +72,7 @@ def get_char_to_ix(dataset):
     return char_field.vocab.stoi
 
 
-def to_iter(dataset, pad_ix, batch_size, bucket=True):
+def to_iter(dataset, pad_ix, batch_size):
     #sort_within_batch is used for when you want to "pack_padded_sequence with the padded sequence data and \
     #convert the padded sequence tensor to a PackedSequence object" (A Comprehesive Introduction to Torchtext)
     data_iter = BucketIterator(dataset, sort=True, batch_size=batch_size, device=-1, sort_within_batch=True, sort_key=lambda x: len(x.sentence), shuffle=False)

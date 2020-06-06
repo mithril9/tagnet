@@ -2,7 +2,6 @@
 
 from lstm_model import LSTMTagger
 from prepare_data import *
-import torch.optim as optim
 import argparse
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from file_handler import *

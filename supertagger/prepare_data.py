@@ -77,12 +77,9 @@ def get_char_to_ix(dataset):
 
 
 def to_iter(dataset, pad_ix, batch_size, bucket=True):
-    if bucket:
-        #sort_within_batch is used for when you want to "pack_padded_sequence with the padded sequence data and \
-        #convert the padded sequence tensor to a PackedSequence object" (A Comprehesive Introduction to Torchtext)
-        data_iter = BucketIterator(dataset, sort=True, batch_size=batch_size, device=-1, sort_within_batch=True, sort_key=lambda x: len(x.sentence), shuffle=False)
-    else:
-        data_iter = Iterator(dataset, batch_size=batch_size, device=-1, sort=False, sort_within_batch=True, repeat=False)
+    #sort_within_batch is used for when you want to "pack_padded_sequence with the padded sequence data and \
+    #convert the padded sequence tensor to a PackedSequence object" (A Comprehesive Introduction to Torchtext)
+    data_iter = BucketIterator(dataset, sort=True, batch_size=batch_size, device=-1, sort_within_batch=True, sort_key=lambda x: len(x.sentence), shuffle=False)
     data_iter.sent_lengths = []
     for batch in data_iter:
         batch_sent_len = batch.sentence[:,0].shape[0]

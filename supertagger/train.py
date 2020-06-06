@@ -4,19 +4,25 @@ from lstm_model import LSTMTagger
 from config import *
 from prepare_data import *
 import torch.optim as optim
+from torch.nn import CrossEntropyLoss
+from torchtext.data.iterator import BucketIterator, Iterator
 import argparse
 import os
-import pdb, json
+import pdb
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from time import gmtime, strftime
+from time import strftime
 from file_handler import *
 from utils import *
 import copy
+from typing import Union, DefaultDict, List, Tuple
+from numpy import float64
+from collections import defaultdict
 
 models_folder = 'models'
 
 
-def main(data_path, saved_model_path):
+def main(data_path: str, saved_model_path: str) -> None:
+    """The main training function"""
     if saved_model_path:
         global EMBEDDING_DIM, CHAR_EMBEDDING_DIM, HIDDEN_DIM, CHAR_HIDDEN_DIM
         EMBEDDING_DIM, CHAR_EMBEDDING_DIM, HIDDEN_DIM, CHAR_HIDDEN_DIM = load_hyper_params(saved_model_path)
@@ -31,7 +37,7 @@ def main(data_path, saved_model_path):
     word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = word_vocab.stoi, word_vocab.itos, tag_vocab.stoi, tag_vocab.itos
     model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), CHAR_EMBEDDING_DIM, CHAR_HIDDEN_DIM,\
                        len(char_to_ix), dropout=dropout)
-    loss_function = torch.nn.CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
+    loss_function = CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     if models_folder not in os.listdir("../"):
         os.mkdir("../"+models_folder)
@@ -83,7 +89,7 @@ def main(data_path, saved_model_path):
         av_train_losses.append(sum(train_losses) / len(train_losses))
         accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, \
         weighted_macro_recall, weighted_macro_f1 = eval_model(model, loss_function, val_iter, char_to_ix, ix_to_word,
-                                                              ix_to_tag, av_eval_losses, lowest_av_eval_loss, epoch)
+                                                              ix_to_tag, av_eval_losses)
         print_results(epoch, accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, weighted_macro_recall, weighted_macro_f1)
         if av_eval_losses[-1] < lowest_av_eval_loss:
             lowest_av_eval_loss = av_eval_losses[-1]
@@ -109,7 +115,14 @@ def main(data_path, saved_model_path):
                   best_micro_f1, best_weighted_macro_precision, best_weighted_macro_recall, best_weighted_macro_f1, final=True)
     plot_train_eval_loss(av_train_losses, av_eval_losses)
 
-def eval_model(model, loss_function, val_iter, char_to_ix, ix_to_word, ix_to_tag, av_eval_losses, lowest_av_eval_loss, epoch):
+def eval_model(model: LSTMTagger,
+               loss_function: CrossEntropyLoss,
+               val_iter: BucketIterator,
+               char_to_ix: DefaultDict[str, int],
+               ix_to_word: List[str],
+               ix_to_tag: List[str],
+               av_eval_losses: List[str]) -> Tuple[float64, float, float64, float64,
+                                                   float64, float64, float64, float64]:
     # Evaluate the model
     model.eval()
     y_pred = []
@@ -145,17 +158,22 @@ def eval_model(model, loss_function, val_iter, char_to_ix, ix_to_word, ix_to_tag
     return accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, \
            weighted_macro_recall, weighted_macro_f1
 
-def print_results(epoch, accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1,
-                  weighted_macro_precision, weighted_macro_recall, weighted_macro_f1, final=False):
+def print_results(epoch: int,
+                  accuracy: float64,
+                  av_epoch_eval_loss: float,
+                  micro_precision: float64,
+                  micro_recall: float64,
+                  micro_f1: float64,
+                  weighted_macro_precision: float64,
+                  weighted_macro_recall: float64,
+                  weighted_macro_f1: float64,
+                  final=False) -> None:
     if not final:
         print("\nEval results at end of epoch {}".format(epoch)+":\n")
     else:
         print("\nBest eval results were obtained on epoch {} and are shown below:\n".format(epoch))
-    try:
-        print("Eval accuracy at end of epoch {}: {:.2f}%".format(epoch, accuracy * 100))
-    except Exception:
-        pdb.set_trace()
-    print("Average Eval loss for epoch {}: {}".format(epoch, str(av_epoch_eval_loss)))
+    print("Eval accuracy: {:.2f}%".format(accuracy * 100))
+    print("Average Eval loss: {}".format(str(av_epoch_eval_loss)))
     print("Micro Precision: {}".format(micro_precision))
     print("Micro Recall: {}".format(micro_recall))
     print("Micro F1: {}".format(micro_f1))

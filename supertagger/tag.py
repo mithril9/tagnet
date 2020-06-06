@@ -2,9 +2,8 @@
 
 from lstm_model import LSTMTagger
 from prepare_data import *
-import torch.optim as optim
 import argparse
-import pdb, json
+import pdb
 from file_handler import *
 from utils import *
 import copy

@@ -11,13 +11,26 @@ import copy
 models_folder = 'models'
 
 
-def main(data_path, saved_model_path):
+def main(data_path: str, saved_model_path: str) -> None:
     embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim = load_hyper_params(saved_model_path)
     word_vocab, tag_vocab, char_to_ix = load_vocab_and_char_to_ix(saved_model_path)
     word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = word_vocab.stoi, word_vocab.itos, tag_vocab.stoi, tag_vocab.itos
-    test_iter = create_datasets(data_path, mode='test', word_to_ix=copy.deepcopy(word_to_ix), word_vocab=copy.deepcopy(word_vocab), tag_vocab=copy.deepcopy(tag_vocab))
-    model = LSTMTagger(embedding_dim, hidden_dim, len(word_to_ix), len(tag_to_ix), char_embedding_dim, char_hidden_dim,\
-                       len(char_to_ix))
+    test_iter = create_datasets(
+        data_path=data_path,
+        mode='test',
+        word_to_ix=copy.deepcopy(word_to_ix),
+        word_vocab=copy.deepcopy(word_vocab),
+        tag_vocab=copy.deepcopy(tag_vocab)
+    )
+    model = LSTMTagger(
+        embedding_dim=embedding_dim,
+        hidden_dim=hidden_dim,
+        vocab_size=len(word_to_ix),
+        tagset_size=len(tag_to_ix),
+        char_embedding_dim=char_embedding_dim,
+        char_hidden_dim=char_hidden_dim,
+        char_vocab_size=len(char_to_ix)
+    )
     loss_function = torch.nn.CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
     load_model(model=model, saved_model_path=saved_model_path)
     #torch.autograd.set_detect_anomaly(True)
@@ -51,9 +64,9 @@ def main(data_path, saved_model_path):
         accuracy = accuracy_score(y_true, y_pred)
         micro_precision, micro_recall, micro_f1, support = precision_recall_fscore_support(y_true, y_pred, average='micro')
         weighted_macro_precision, weighted_macro_recall, weighted_macro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted')
-        av_epoch_test_loss = sum(test_losses)/len(test_losses)
+        av_test_loss = sum(test_losses)/len(test_losses)
         print("Test accuracy: {:.2f}%".format(accuracy*100))
-        print("Average Test loss: {}".format(str(av_epoch_test_loss)))
+        print("Average Test loss: {}".format(str(av_test_loss)))
         print("Micro Precision: {}".format(micro_precision))
         print("Micro Recall: {}".format(micro_recall))
         print("Micro F1: {}".format(micro_f1))

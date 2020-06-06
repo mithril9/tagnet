@@ -45,7 +45,7 @@ def load_model(model: LSTMTagger,
                checkpoint['av_eval_losses'], \
                checkpoint['checkpoint_epoch'], \
                checkpoint['accuracy'], \
-               checkpoint['av_epoch_eval_loss'], \
+               checkpoint['av_eval_loss'], \
                checkpoint['micro_precision'], \
                checkpoint['micro_recall'], \
                checkpoint['micro_f1'], \
@@ -76,7 +76,7 @@ def save_model(epoch: int,
                hidden_dim: int,
                char_hidden_dim: int,
                accuracy: float64,
-               av_epoch_eval_loss: float,
+               av_eval_loss: float,
                micro_precision: float64,
                micro_recall: float64,
                micro_f1: float64,
@@ -101,7 +101,7 @@ def save_model(epoch: int,
             'hidden_dim': hidden_dim,
             'char_hidden_dim': char_hidden_dim,
             'accuracy': accuracy,
-            'av_epoch_eval_loss': av_epoch_eval_loss,
+            'av_eval_loss': av_eval_loss,
             'micro_precision': micro_precision,
             'micro_recall': micro_recall,
             'micro_f1': micro_f1,

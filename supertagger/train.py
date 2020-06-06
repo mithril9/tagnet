@@ -41,7 +41,7 @@ def main(data_path: str, saved_model_path: str) -> None:
         embedding_dim=embedding_dim,
         hidden_dim=hidden_dim,
         vocab_size=len(word_to_ix),
-        tag_set_size=len(tag_to_ix),
+        tagset_size=len(tag_to_ix),
         char_embedding_dim=char_embedding_dim,
         char_hidden_dim=char_hidden_dim,
         char_vocab_size=len(char_to_ix),
@@ -111,7 +111,7 @@ def main(data_path: str, saved_model_path: str) -> None:
             loss.backward()
             optimizer.step()
         av_train_losses.append(sum(train_losses) / len(train_losses))
-        accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, \
+        accuracy, av_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, \
         weighted_macro_recall, weighted_macro_f1 = eval_model(model=model,
                                                               loss_function=loss_function,
                                                               val_iter=val_iter,
@@ -119,7 +119,7 @@ def main(data_path: str, saved_model_path: str) -> None:
                                                               ix_to_word=ix_to_word,
                                                               ix_to_tag=ix_to_tag,
                                                               av_eval_losses=av_eval_losses)
-        print_results(epoch, accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, weighted_macro_recall, weighted_macro_f1)
+        print_results(epoch, accuracy, av_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, weighted_macro_recall, weighted_macro_f1)
         if av_eval_losses[-1] < lowest_av_eval_loss:
             lowest_av_eval_loss = av_eval_losses[-1]
             best_accuracy, \
@@ -145,14 +145,14 @@ def main(data_path: str, saved_model_path: str) -> None:
                 model_file_name=model_file_name,
                 word_vocab=word_vocab,
                 tag_vocab=tag_vocab,
-                char_to_ix_copy=char_to_ix_copy,
+                char_to_ix=char_to_ix_copy,
                 models_folder=models_folder,
                 embedding_dim=embedding_dim,
                 char_embedding_dim=char_embedding_dim,
                 hidden_dim=hidden_dim,
                 char_hidden_dim=char_hidden_dim,
-                best_accuracy=best_accuracy,
-                lowest_av_eval_loss=lowest_av_eval_loss,
+                accuracy=best_accuracy,
+                av_eval_loss=lowest_av_eval_loss,
                 micro_precision=best_micro_precision,
                 micro_recall=best_micro_recall,
                 micro_f1=best_micro_f1,
@@ -162,7 +162,7 @@ def main(data_path: str, saved_model_path: str) -> None:
                 )
     print_results(
         epoch=checkpoint_epoch,
-        best_accuracy=best_accuracy,
+        accuracy=best_accuracy,
         av_eval_loss=lowest_av_eval_loss,
         micro_precision=best_micro_precision,
         micro_recall=best_micro_recall,
@@ -216,16 +216,16 @@ def eval_model(
         weighted_macro_precision, weighted_macro_recall, weighted_macro_f1, _ = precision_recall_fscore_support(y_true,
                                                                                                                 y_pred,
                                                                                                                 average='weighted')
-        av_epoch_eval_loss = sum(eval_losses) / len(eval_losses)
+        av_eval_loss = sum(eval_losses) / len(eval_losses)
 
-    return accuracy, av_epoch_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, \
+    return accuracy, av_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, \
            weighted_macro_recall, weighted_macro_f1
 
 
 def print_results(
         epoch: int,
         accuracy: float64,
-        av_epoch_eval_loss: float,
+        av_eval_loss: float,
         micro_precision: float64,
         micro_recall: float64,
         micro_f1: float64,
@@ -239,7 +239,7 @@ def print_results(
     else:
         print("\nBest eval results were obtained on epoch {} and are shown below:\n".format(epoch))
     print("Eval accuracy: {:.2f}%".format(accuracy * 100))
-    print("Average Eval loss: {}".format(str(av_epoch_eval_loss)))
+    print("Average Eval loss: {}".format(str(av_eval_loss)))
     print("Micro Precision: {}".format(micro_precision))
     print("Micro Recall: {}".format(micro_recall))
     print("Micro F1: {}".format(micro_f1))

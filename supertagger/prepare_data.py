@@ -72,9 +72,8 @@ def get_char_to_ix(dataset: TabularDataset) -> DefaultDict[str, int]:
     return char_field.vocab.stoi
 
 
-def to_iter(dataset, pad_ix, batch_size):
-    #sort_within_batch is used for when you want to "pack_padded_sequence with the padded sequence data and \
-    #convert the padded sequence tensor to a PackedSequence object" (A Comprehesive Introduction to Torchtext)
+def to_iter(dataset: TabularDataset, pad_ix: int, batch_size: int) -> BucketIterator:
+    #sort_within_batch = True is need for packing the padded sequence
     data_iter = BucketIterator(dataset, sort=True, batch_size=batch_size, device=-1, sort_within_batch=True, sort_key=lambda x: len(x.sentence), shuffle=False)
     data_iter.sent_lengths = []
     for batch in data_iter:
@@ -87,7 +86,7 @@ def to_iter(dataset, pad_ix, batch_size):
     return data_iter
 
 
-def create_csv(data_path):
+def create_csv(data_path: str) -> None:
     raw_sentences = open(data_path + ".words").readlines()
     raw_tag_sequences = open(data_path+".tags").readlines()
     raw_data = {'sentence': [sent.strip() for sent in raw_sentences if sent != ''],
@@ -96,28 +95,22 @@ def create_csv(data_path):
     df.to_csv(data_path+".csv", index=False)
 
 
-def create_char_ix_mappings(train_dataset):
-    char_to_ix = {}
-    for example in train_dataset:
-        for word in example.sentence:
-            for char in  word:
-                if char not in char_to_ix:
-                    char_to_ix[char] = len(char_to_ix)
-    return char_to_ix
-
-
-def prepare_untagged_data(data_path: str, word_to_ix: DefaultDict[str, int]):
+def prepare_untagged_data(data_path: str, word_to_ix: DefaultDict[str, int]) -> Tuple[List[List[str]], List[torch.Tensor]]:
     sentences = [tokenize(line) for line in open(data_path).readlines()]
     sent_tensors = [prepare_sequence(sent, word_to_ix).view(1,-1) for sent in sentences]
     return sentences, sent_tensors
 
 
-def prepare_sequence(seq, to_ix):
+def prepare_sequence(seq: List[str], to_ix: DefaultDict[str, int]) -> torch.Tensor:
     idxs = [to_ix[w] for w in seq]
     return torch.tensor(idxs, dtype=torch.long)
 
 
-def get_words_in(sentences_in, char_to_ix, ix_to_word):
+def get_words_in(
+        sentences_in: torch.Tensor,
+        char_to_ix: DefaultDict[str, int],
+        ix_to_word: List[str]
+) -> List[torch.Tensor]:
     words_in = []
     for i in range(sentences_in.shape[0]):
         words_in.append([prepare_sequence(word, char_to_ix) for word in [ix_to_word[ix] for ix in sentences_in[i, :]]])
@@ -125,7 +118,7 @@ def get_words_in(sentences_in, char_to_ix, ix_to_word):
     return words_in
 
 
-def batchify_sent(sent):
+def batchify_sent(sent: List[torch.Tensor]) -> torch.Tensor:
     #we need to pad the words in the sentence so that they all have the same number of characters
     max_len = 0
     for word in sent:

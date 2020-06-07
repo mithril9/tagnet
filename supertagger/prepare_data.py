@@ -95,9 +95,13 @@ def create_csv(data_path: str) -> None:
     df.to_csv(data_path+".csv", index=False)
 
 
-def prepare_untagged_data(data_path: str, word_to_ix: DefaultDict[str, int]) -> Tuple[List[List[str]], List[torch.Tensor]]:
+def prepare_untagged_data(
+        data_path: str,
+        word_to_ix: DefaultDict[str, int],
+        device: torch.device
+) -> Tuple[List[List[str]], List[torch.Tensor]]:
     sentences = [tokenize(line) for line in open(data_path).readlines()]
-    sent_tensors = [prepare_sequence(sent, word_to_ix).view(1,-1) for sent in sentences]
+    sent_tensors = [prepare_sequence(sent, word_to_ix).view(1,-1).to(device) for sent in sentences]
     return sentences, sent_tensors
 
 
@@ -109,12 +113,13 @@ def prepare_sequence(seq: List[str], to_ix: DefaultDict[str, int]) -> torch.Tens
 def get_words_in(
         sentences_in: torch.Tensor,
         char_to_ix: DefaultDict[str, int],
-        ix_to_word: List[str]
+        ix_to_word: List[str],
+        device: torch.device = 'cpu'
 ) -> List[torch.Tensor]:
     words_in = []
     for i in range(sentences_in.shape[0]):
         words_in.append([prepare_sequence(word, char_to_ix) for word in [ix_to_word[ix] for ix in sentences_in[i, :]]])
-        words_in[-1] = batchify_sent(words_in[-1])
+        words_in[-1] = batchify_sent(words_in[-1]).to(device)
     return words_in
 
 

@@ -7,8 +7,10 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from file_handler import *
 from utils import *
 import copy
+from config import *
 
 models_folder = 'models'
+device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_available) else "cpu")
 
 
 def main(data_path: str, saved_model_path: str) -> None:
@@ -33,6 +35,7 @@ def main(data_path: str, saved_model_path: str) -> None:
     )
     loss_function = torch.nn.CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
     load_model(model=model, saved_model_path=saved_model_path)
+    mode.to(device)
     #torch.autograd.set_detect_anomaly(True)
     print("testing model: "+saved_model_path+'\n')
     model.eval()
@@ -47,15 +50,23 @@ def main(data_path: str, saved_model_path: str) -> None:
             word_batch_size = batch.sentence.shape[0]
             sent_batch_size = batch.sentence.shape[1]
             model.init_hidden(sent_batch_size)
-            sentences_in = batch.sentence.permute(1, 0)
-            targets = batch.tags.permute(1,0).reshape(sent_batch_size*word_batch_size)
+            sentences_in = batch.sentence.permute(1, 0).to(device)
+            targets = batch.tags.permute(1,0).reshape(sent_batch_size*word_batch_size).to(device)
             y_true += [ix_to_tag[ix.item()] for ix in targets]
-            words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
-            tag_logits = model(sentences=sentences_in,
-                               words=words_in,
-                               char_hidden_dim=char_hidden_dim,
-                               sent_lengths=test_iter.sent_lengths[batch_num-1],
-                               word_batch_size=word_batch_size)
+            words_in = get_words_in(
+                sentences_in=sentences_in,
+                char_to_ix=char_to_ix,
+                ix_to_word=ix_to_word,
+                device=device
+            )
+            tag_logits = model(
+                sentences=sentences_in,
+                words=words_in,
+                char_hidden_dim=char_hidden_dim,
+                sent_lengths=test_iter.sent_lengths[batch_num-1],
+                word_batch_size=word_batch_size,
+                device=device
+            )
             test_loss = loss_function(tag_logits, targets)
             test_losses.append(round(test_loss.item(), 2))
             pred = categoriesFromOutput(tag_logits, ix_to_tag)

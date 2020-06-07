@@ -31,28 +31,29 @@ class LSTMTagger(nn.Module):
         self.linear1 = nn.Linear(hidden_dim*2, hidden_dim)
         self.hidden2tag = nn.Linear(hidden_dim, tagset_size)
 
-    def init_hidden(self, sent_batch_size: int) ->  None:
+    def init_hidden(self, sent_batch_size: int, device: torch.device) ->  None:
         # The axes semantics are (num_layers*2, minibatch_size, hidden_dim)
-        self.hidden = (torch.zeros(4, sent_batch_size, self.hidden_dim),
-                torch.zeros(4, sent_batch_size, self.hidden_dim))
+        self.hidden = (torch.zeros(4, sent_batch_size, self.hidden_dim).to(device),
+                torch.zeros(4, sent_batch_size, self.hidden_dim).to(device))
 
-    def init_char_hidden(self, word_batch_size: int) -> None:
+    def init_char_hidden(self, word_batch_size: int, device: torch.device) -> None:
         # The axes semantics are (num_layers, minibatch_size, hidden_dim)
-        self.char_hidden = (torch.zeros(2, word_batch_size, self.char_hidden_dim),
-                torch.zeros(2, word_batch_size, self.char_hidden_dim))
+        self.char_hidden = (torch.zeros(2, word_batch_size, self.char_hidden_dim).to(device),
+                torch.zeros(2, word_batch_size, self.char_hidden_dim).to(device))
 
     def forward(self,
                 sentences: torch.Tensor,
                 words: List[torch.Tensor],
                 char_hidden_dim: int,
                 sent_lengths: List[int],
-                word_batch_size: int) -> torch.Tensor:
+                word_batch_size: int,
+                device: torch.device) -> torch.Tensor:
         sent_batch_size = sentences.shape[0]
         sent_len = sentences.shape[1]
         embeds = self.word_embeddings(sentences)
         char_final_hiddens = torch.zeros(sent_batch_size, sent_len, char_hidden_dim*2, requires_grad=False)
         for sent in range(sent_batch_size):
-            self.init_char_hidden(word_batch_size)
+            self.init_char_hidden(word_batch_size=word_batch_size, device=device)
             char_embeds = self.char_embeddings(words[sent])
             word_lengths = (words[sent] != 1).float().sum(dim=1)
             # we treat each sentence as a batch of words for the char LSTM, hence batch size = sent_len

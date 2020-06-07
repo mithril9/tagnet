@@ -21,6 +21,7 @@ from collections import defaultdict
 evalModelReturn = Tuple[float64, float, float64, float64, float64, float64, float64, float64]
 
 models_folder = 'models'
+device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_available) else "cpu")
 
 
 def main(data_path: str, saved_model_path: str) -> None:
@@ -45,7 +46,7 @@ def main(data_path: str, saved_model_path: str) -> None:
         char_embedding_dim=char_embedding_dim,
         char_hidden_dim=char_hidden_dim,
         char_vocab_size=len(char_to_ix),
-        dropout=float(dropout)
+        lstm_dropout=float(lstm_dropout)
     )
     loss_function = CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
@@ -73,6 +74,7 @@ def main(data_path: str, saved_model_path: str) -> None:
         lowest_av_eval_loss = 999999
         model_file_name = strftime("%Y_%m_%d_%H_%M_%S.pt")
     #torch.autograd.set_detect_anomaly(True)
+    model.to(device)
     print("training..\n")
     model.train()
     start_epoch = checkpoint_epoch+1
@@ -93,17 +95,25 @@ def main(data_path: str, saved_model_path: str) -> None:
             model.zero_grad()
             word_batch_size = batch.sentence.shape[0]
             sent_batch_size = batch.sentence.shape[1]
-            model.init_hidden(sent_batch_size)
+            model.init_hidden(sent_batch_size=sent_batch_size, device=device)
             #we want batch to be the first dimension
-            sentences_in = batch.sentence.permute(1,0)
-            targets = batch.tags.permute(1,0).reshape(sent_batch_size*word_batch_size)
-            words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
+            sentences_in = batch.sentence.permute(1,0).to(device)
+            targets = batch.tags.permute(1,0).reshape(sent_batch_size*word_batch_size).to(device)
+            words_in = get_words_in(
+                sentences_in=sentences_in,
+                char_to_ix=char_to_ix,
+                ix_to_word=ix_to_word,
+                device=device
+            )
             # Step 3. Run our forward pass.
-            tag_logits = model(sentences=sentences_in,
-                               words=words_in,
-                               char_hidden_dim=char_hidden_dim,
-                               sent_lengths=train_iter.sent_lengths[batch_num-1],
-                               word_batch_size=word_batch_size)
+            tag_logits = model(
+                sentences=sentences_in,
+                words=words_in,
+                char_hidden_dim=char_hidden_dim,
+                sent_lengths=train_iter.sent_lengths[batch_num-1],
+                word_batch_size=word_batch_size,
+                device=device
+            )
             # Step 4. Compute the loss, gradients, and update the parameters by
             #  calling optimizer.step()
             loss = loss_function(tag_logits, targets)
@@ -195,16 +205,17 @@ def eval_model(
             batch_num += 1
             word_batch_size = batch.sentence.shape[0]
             sent_batch_size = batch.sentence.shape[1]
-            model.init_hidden(sent_batch_size)
-            sentences_in = batch.sentence.permute(1, 0)
-            targets = batch.tags.permute(1, 0).reshape(sent_batch_size * word_batch_size)
+            model.init_hidden(sent_batch_size=sent_batch_size, device=device)
+            sentences_in = batch.sentence.permute(1, 0).to(device)
+            targets = batch.tags.permute(1, 0).reshape(sent_batch_size * word_batch_size).to(device)
             y_true += [ix_to_tag[ix.item()] for ix in targets]
-            words_in = get_words_in(sentences_in, char_to_ix, ix_to_word)
+            words_in = get_words_in(sentences_in, char_to_ix, ix_to_word, device)
             tag_logits = model(sentences=sentences_in,
                                words=words_in,
                                char_hidden_dim=char_hidden_dim,
                                sent_lengths=val_iter.sent_lengths[batch_num - 1],
-                               word_batch_size=word_batch_size)
+                               word_batch_size=word_batch_size,
+                               device=device)
             eval_loss = loss_function(tag_logits, targets)
             eval_losses.append(round(eval_loss.item(), 2))
             pred = categoriesFromOutput(tag_logits, ix_to_tag)

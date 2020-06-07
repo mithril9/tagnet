@@ -9,6 +9,7 @@ from utils import *
 import copy
 
 models_folder = 'models'
+device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_available) else "cpu")
 
 
 def main(data_path: str, dest_path:str, saved_model_path: str) -> None:
@@ -21,6 +22,7 @@ def main(data_path: str, dest_path:str, saved_model_path: str) -> None:
                        len(char_to_ix))
     load_model(model=model, saved_model_path=saved_model_path)
     #torch.autograd.set_detect_anomaly(True)
+    model.to(device)
     print("\ntagging sentences using model: "+saved_model_path+'\n')
     model.eval()
     with torch.no_grad():
@@ -30,8 +32,13 @@ def main(data_path: str, dest_path:str, saved_model_path: str) -> None:
             sent_num += 1
             word_batch_size = len(sentence)
             sent_batch_size = 1
-            model.init_hidden(sent_batch_size)
-            words_in = get_words_in(sent_tensor, char_to_ix, ix_to_word)
+            model.init_hidden(sent_batch_size=sent_batch_size, device=device)
+            words_in = get_words_in(
+                sent_tensor=sent_tensor,
+                char_to_ix=char_to_ix,
+                ix_to_word=ix_to_word,
+                device=device
+            )
             tag_logits = model(sentences=sent_tensor,
                                words=words_in,
                                char_hidden_dim=char_hidden_dim,

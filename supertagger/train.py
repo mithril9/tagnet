@@ -16,7 +16,7 @@ from utils import *
 import copy
 from typing import Union, DefaultDict, List, Tuple
 from numpy import float64
-from collections import defaultdict
+from constants import *
 
 evalModelReturn = Tuple[float64, float, float64, float64, float64, float64, float64, float64]
 
@@ -29,15 +29,25 @@ def main(data_path: str, saved_model_path: str) -> None:
     if saved_model_path:
         global embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim
         embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim = load_hyper_params(saved_model_path)
-    train_iter, \
-    val_iter, \
-    word_vocab, \
-    tag_vocab, \
-    char_to_ix = create_datasets(data_path=data_path, mode='train')
-    #char_to_ix gets added to automatically with any characters (e.g. < >) encountered during evaluation, but we want to
-    #save the original copy so that the char embeddings para can be computed, hence we create a copy here.
+    if use_bert_uncased or use_bert_cased:
+        train_iter, \
+        val_iter, \
+        word_to_ix, \
+        ix_to_word, \
+        tag_to_ix, \
+        ix_to_tag, \
+        char_to_ix = create_bert_datasets(data_path=data_path, mode=TRAIN)
+    else:
+        train_iter, \
+        val_iter, \
+        word_vocab, \
+        tag_vocab, \
+        char_to_ix = create_datasets(data_path=data_path, mode=TRAIN)
+        #char_to_ix gets added to automatically with any characters (e.g. < >) encountered during evaluation, but we want to
+        #save the original copy so that the char embeddings para can be computed, hence we create a copy here.
+        word_to_ix, ix_to_word = word_vocab.stoi, word_vocab.itos
+    tag_to_ix, ix_to_tag = tag_vocab.stoi, tag_vocab.itos
     char_to_ix_copy = copy.deepcopy(char_to_ix)
-    word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = word_vocab.stoi, word_vocab.itos, tag_vocab.stoi, tag_vocab.itos
     model = LSTMTagger(
         embedding_dim=embedding_dim,
         hidden_dim=hidden_dim,
@@ -265,9 +275,11 @@ if __name__ == '__main__':
     cmd_parser.add_argument('--model-path', dest='saved_model_path', type=str, nargs=1,
                             help='the relative path to a model you wish to resume training from')
     args = cmd_parser.parse_args()
+    if use_bert_cased and use_bert_uncased:
+        raise Exception("Both use_bert_cased and use_bert_uncased are set to True in config.py!! \
+        Please edit the file so that at most one of these is set to true.")
     if args.saved_model_path:
         saved_model_path = args.saved_model_path[0]
     else:
         saved_model_path = None
-
     main(args.data_path[0], saved_model_path)

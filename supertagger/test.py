@@ -8,6 +8,7 @@ from file_handler import *
 from utils import *
 import copy
 from config import *
+from constants import *
 
 models_folder = 'models'
 device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_available) else "cpu")
@@ -19,7 +20,7 @@ def main(data_path: str, saved_model_path: str) -> None:
     word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = word_vocab.stoi, word_vocab.itos, tag_vocab.stoi, tag_vocab.itos
     test_iter = create_datasets(
         data_path=data_path,
-        mode='test',
+        mode=TEST,
         word_to_ix=copy.deepcopy(word_to_ix),
         word_vocab=copy.deepcopy(word_vocab),
         tag_vocab=copy.deepcopy(tag_vocab)

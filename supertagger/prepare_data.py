@@ -1,33 +1,180 @@
 """Preprocesses data for the supertagger"""
 
 import torch
+import numpy as np
 from torchtext.data import Field, BucketIterator, Iterator, TabularDataset
 from torchtext.data.dataset import TabularDataset
 from torchtext.vocab import Vocab
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, Dataset
 import pdb
 import os
 from typing import List,  Tuple
 #from sklearn.model_selection import train_test_split
 import pandas as pd
-from config import batch_size
+from config import *
 from utils import *
 from typing import DefaultDict, Union
+from transformers import BertTokenizer
+from constants import *
+from collections import Counter
 
 createDatasetsReturnType = Union[Tuple[BucketIterator, BucketIterator, Vocab, Vocab, DefaultDict[str, int]],
                                  Tuple[BucketIterator]]
 
+if use_bert_uncased:
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+elif use_bert_cased:
+    tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
 
-def create_datasets(data_path, mode, word_to_ix=None, word_vocab=None, tag_vocab=None) -> createDatasetsReturnType:
+class BertTokenizedDataset(Dataset):
+
+    def __init__(self, data_path_words: str, data_path_tags: str, tag_to_ix: Vocab):
+        self.original_sentences = open(data_path_words).readlines()
+        self.tags = open(data_path_tags).readlines()
+        input_ids = []
+        self.tag_ids = [[tag_to_ix[tag] for tag in tags.strip().split()] for tags in self.tags]
+        self.token_start_idx = self.get_token_start_idxs()
+        self.attention_masks = []
+        for sent in self.original_sentences:
+            # `encode_plus` will:
+            #   (1) Tokenize the sentence.
+            #   (2) Prepend the `[CLS]` token to the start.
+            #   (3) Append the `[SEP]` token to the end.
+            #   (4) Map tokens to their IDs.
+            #   (5) Pad or truncate the sentence to `max_length`
+            #   (6) Create attention masks for [PAD] tokens.
+            encoded_dict = tokenizer.encode_plus(
+                sent,  # Sentence to encode.
+                add_special_tokens=True,  # Add '[CLS]' and '[SEP]'
+                max_length=bert_max_seq_len,  # Pad & truncate all sentences.
+                pad_to_max_length=True,
+                return_attention_mask=True,  # Construct attn. masks.
+                return_tensors='pt',  # Return pytorch tensors.
+            )
+
+            # Add the encoded sentence to the list.
+            input_ids.append(encoded_dict['input_ids'])
+
+            # And its attention mask (simply differentiates padding from non-padding).
+            self.attention_masks.append(encoded_dict['attention_mask'])
+
+        # Convert the lists into tensors.
+        self.input_ids = torch.cat(input_ids, dim=0)
+        self.attention_masks = torch.cat(self.attention_masks, dim=0)
+
+    def get_token_start_idxs(self):
+        token_start_idxs = []
+        for sent in self.original_sentences:
+            words = sent.split()
+            subwords = list(map(tokenizer.tokenize, words))
+            subword_lengths = list(map(len, subwords))
+            subwords = [CLS] + list(self.flatten(subwords)) + [SEP]
+            token_start_idxs.append(list(1 + np.cumsum([0] + subword_lengths[:-1])))
+        return token_start_idxs
+
+    def flatten(self, list_of_lists):
+        flattened_list = []
+        for LIST in list_of_lists:
+            flattened_list += LIST
+        return flattened_list
+
+    def __len__(self):
+        return len(self.original_sentences)
+
+    def __getitem__(self, idx):
+        sample = {
+            'original_sentence':    self.original_sentences[idx],
+            'tags':                 self.tags[idx],
+            'input_ids':            self.input_ids[idx],
+            'tag_ids':              self.tag_ids[idx],
+            'attention_mask':       self.attention_masks[idx],
+            'token_start_idx':      self.token_start_idx[idx]
+        }
+        return sample
+
+class BertTokenToIx:
+
+    def __init__(self):
+        pass
+
+    def __getitem__(self, token):
+        return tokenizer.convert_tokens_to_ids(token)
+
+class BertIxToWord:
+
+    def __init__(self):
+        pass
+
+    def __getitem__(self, idx):
+        return tokenizer.convert_ids_to_tokens(token)
+
+
+def create_bert_datasets(data_path: str, mode: str):
+    if mode == TRAIN:
+        tag_vocab = get_tag_vocab(os.path.join(data_path))
+        tag_to_ix, ix_to_tag = tag_vocab.stoi, tag_vocab.itos
+        word_to_ix, ix_to_word = BertTokenToIx(), BertIxToWord()
+        train_data_path = os.path.join(data_path, TRAIN)
+        val_data_path = os.path.join(data_path, VAL)
+        train_dataset = BertTokenizedDataset(
+            data_path_words=train_data_path+".words",
+            data_path_tags=train_data_path+".tags",
+            tag_to_ix=tag_to_ix
+        )
+        val_dataset = BertTokenizedDataset(
+            data_path_words=val_data_path+".words",
+            data_path_tags=val_data_path+".tags",
+            tag_to_ix=tag_to_ix
+        )
+
+        train_iter = DataLoader(
+            train_dataset,  # The training samples.
+            sampler=RandomSampler(train_dataset),  # Select batches randomly
+            batch_size=batch_size,  # Trains with this batch size.
+            collate_fn=collate_fn
+        )
+
+        # For validation the order doesn't matter, so we'll just read them sequentially.
+        val_iter = DataLoader(
+            val_dataset,  # The validation samples.
+            sampler=SequentialSampler(val_dataset),  # Pull out batches sequentially.
+            batch_size=batch_size,  # Evaluate with this batch size.
+            collate_fn=collate_fn
+        )
+
+        for item in train_iter:
+            pdb.set_trace()
+
+        return train_iter, val_iter, word_to_ix, ix_to_word, tag_to_ix, ix_to_tag
+
+def collate_fn(sentences_batch):
+    input_ids = torch.cat(tuple([torch.unsqueeze(features['input_ids'], dim=0) for features in sentences_batch]), dim=0)
+    attention_masks = torch.cat(tuple([torch.unsqueeze(features['attention_mask'], dim=0) for features in sentences_batch]), dim=0)
+    token_start_idx = [features['token_start_idx'] for features in sentences_batch]
+    tag_ids = [features['tag_ids'] for features in sentences_batch]
+    batch = [features[key] for features in sentences_batch for key in ('input_ids', 'attention_mask', 'token_start_idx', 'tag_ids')]
+    return batch
+
+
+def get_tag_vocab(data_path: str):
+    tagCounter = Counter()
+    for line in open(os.path.join(data_path, 'train.tags')):
+        for tag in line.strip().split():
+            tagCounter[tag] += 1
+    return Vocab(tagCounter)
+
+
+def create_datasets(data_path: str, mode: str, word_to_ix=None, word_vocab=None, tag_vocab=None) -> createDatasetsReturnType:
     sent_field = Field(lower=True)
     tag_field = Field()
     data_fields = [('sentence', sent_field), ('tags', tag_field)]
-    if mode == 'train':
-        dataSetNames = ['train', 'val']
-    elif mode == 'test':
-        dataSetNames = ['test']
+    if mode == TRAIN:
+        dataSetNames = [TRAIN, VAL]
+    elif mode == TEST:
+        dataSetNames = [TEST]
     for data_set in dataSetNames:
         create_csv(os.path.join(data_path, data_set))
-    if mode == 'train':
+    if mode == TRAIN:
         train_dataset, val_dataset = TabularDataset.splits(path=data_path,
                                                            train='train.csv',
                                                            validation='val.csv',
@@ -41,7 +188,7 @@ def create_datasets(data_path, mode, word_to_ix=None, word_vocab=None, tag_vocab
         train_iter = to_iter(train_dataset, sent_field.vocab.stoi['<pad>'], batch_size)
         val_iter = to_iter(val_dataset, sent_field.vocab.stoi['<pad>'], 1)
         return train_iter, val_iter, sent_field.vocab, tag_field.vocab, char_to_ix
-    elif mode == 'test':
+    elif mode == TEST:
         sent_field.vocab = word_vocab
         tag_field.vocab = tag_vocab
         test_dataset = TabularDataset(path=os.path.join(data_path, 'test.csv'),

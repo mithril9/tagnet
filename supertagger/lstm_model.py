@@ -6,6 +6,8 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import pdb
 from typing import List
+from config import *
+from transformers import BertModel
 
 class LSTMTagger(nn.Module):
 
@@ -21,7 +23,10 @@ class LSTMTagger(nn.Module):
         super(LSTMTagger, self).__init__()
         self.hidden_dim = hidden_dim
         self.char_hidden_dim = char_hidden_dim
-        self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
+        if use_bert_uncased or use_bert_uncased:
+            self.bert = self.get_bert_model()
+        else:
+            self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
         self.char_embeddings = nn.Embedding(char_vocab_size, char_embedding_dim)
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
@@ -30,6 +35,17 @@ class LSTMTagger(nn.Module):
         # The linear layer that maps from hidden state space to tag space
         self.linear1 = nn.Linear(hidden_dim*2, hidden_dim)
         self.hidden2tag = nn.Linear(hidden_dim, tagset_size)
+
+    def get_bert_model():
+        if use_bert_uncased:
+            cased_uncased = "bert-base-uncased"
+        else:
+            cased_uncased = "bert-base-cased"
+        device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_available) else "cpu")
+        bert = BertModel.from_pretrained(cased_uncased).to(device=torch.device(device))
+        if data_parallel:
+            bert = torch.nn.DataParallel(bert)
+        return bert
 
     def init_hidden(self, sent_batch_size: int, device: torch.device) ->  None:
         # The axes semantics are (num_layers*2, minibatch_size, hidden_dim)

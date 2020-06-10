@@ -34,9 +34,9 @@ def main(data_path: str, saved_model_path: str) -> None:
         val_iter, \
         word_to_ix, \
         ix_to_word, \
-        tag_to_ix, \
-        ix_to_tag, \
+        tag_vocab, \
         char_to_ix = create_bert_datasets(data_path=data_path, mode=TRAIN)
+        vocab_size = None
     else:
         train_iter, \
         val_iter, \
@@ -46,12 +46,13 @@ def main(data_path: str, saved_model_path: str) -> None:
         #char_to_ix gets added to automatically with any characters (e.g. < >) encountered during evaluation, but we want to
         #save the original copy so that the char embeddings para can be computed, hence we create a copy here.
         word_to_ix, ix_to_word = word_vocab.stoi, word_vocab.itos
+        vocab_size = len(word_to_ix)
     tag_to_ix, ix_to_tag = tag_vocab.stoi, tag_vocab.itos
     char_to_ix_copy = copy.deepcopy(char_to_ix)
     model = LSTMTagger(
         embedding_dim=embedding_dim,
         hidden_dim=hidden_dim,
-        vocab_size=len(word_to_ix),
+        vocab_size=vocab_size,
         tagset_size=len(tag_to_ix),
         char_embedding_dim=char_embedding_dim,
         char_hidden_dim=char_hidden_dim,

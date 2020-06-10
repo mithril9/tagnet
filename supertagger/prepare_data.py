@@ -142,10 +142,18 @@ def create_bert_datasets(data_path: str, mode: str):
             collate_fn=collate_fn
         )
 
-        for item in train_iter:
-            pdb.set_trace()
+        char_vocab = get_char_vocab(train_dataset)
+        char_to_ix = char_vocab.stoi
 
-        return train_iter, val_iter, word_to_ix, ix_to_word, tag_to_ix, ix_to_tag
+        return train_iter, val_iter, word_to_ix, ix_to_word, tag_vocab, char_to_ix
+
+def get_char_vocab(dataset: BertTokenizedDataset):
+    charCounter = Counter()
+    for entry in dataset:
+        for word in entry['original_sentence'].strip().split():
+            for char in word:
+                charCounter[char] += 1
+    return Vocab(charCounter)
 
 def collate_fn(sentences_batch):
     input_ids = torch.cat(tuple([torch.unsqueeze(features['input_ids'], dim=0) for features in sentences_batch]), dim=0)

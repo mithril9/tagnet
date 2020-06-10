@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import pdb
-from typing import List
+from typing import List, Optional
 from config import *
 from transformers import BertModel
 
@@ -14,29 +14,48 @@ class LSTMTagger(nn.Module):
     def __init__(self,
                  embedding_dim: int,
                  hidden_dim: int,
-                 vocab_size: int,
+                 vocab_size: Optional[int],
                  tagset_size: int,
                  char_embedding_dim: int,
                  char_hidden_dim: int,
                  char_vocab_size: int,
-                 dropout: float = 0) -> None:
+                 lstm_dropout: float = 0) -> None:
         super(LSTMTagger, self).__init__()
         self.hidden_dim = hidden_dim
         self.char_hidden_dim = char_hidden_dim
         if use_bert_uncased or use_bert_uncased:
             self.bert = self.get_bert_model()
+            if freeze_bert:
+                for param in self.bert.parameters():
+                    param.requires_grad = False
+            bert_dim = self.bert.embeddings.word_embeddings.weight.size()[1]
+            #we use an affine transformation to compress the bert embeddings down to embedding_dim
+            self.compressBertLinear = nn.Linear(bert_dim, embedding_dim)
         else:
             self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
+        pdb.set_trace()
         self.char_embeddings = nn.Embedding(char_vocab_size, char_embedding_dim)
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
-        self.lstm = nn.LSTM(embedding_dim + (char_hidden_dim*2), hidden_dim, num_layers=2, batch_first=True, bidirectional=True, dropout=dropout)
-        self.char_lstm = nn.LSTM(char_embedding_dim, char_hidden_dim, batch_first=True, bidirectional=True)
+        self.lstm = nn.LSTM(
+            embedding_dim + (char_hidden_dim*2),
+            hidden_dim,
+            num_layers=2,
+            batch_first=True,
+            bidirectional=True,
+            lstm_dropout=lstm_dropout
+        )
+        self.char_lstm = nn.LSTM(
+            char_embedding_dim,
+            char_hidden_dim,
+            batch_first=True,
+            bidirectional=True
+        )
         # The linear layer that maps from hidden state space to tag space
         self.linear1 = nn.Linear(hidden_dim*2, hidden_dim)
         self.hidden2tag = nn.Linear(hidden_dim, tagset_size)
 
-    def get_bert_model():
+    def get_bert_model(self):
         if use_bert_uncased:
             cased_uncased = "bert-base-uncased"
         else:

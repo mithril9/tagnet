@@ -26,10 +26,14 @@ device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_ava
 
 def main(data_path: str, saved_model_path: str) -> None:
     """The main training function"""
+    if use_bert_uncased or use_bert_cased:
+        use_bert = True
+    else:
+        use_bert = False
     if saved_model_path:
         global embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim
         embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim = load_hyper_params(saved_model_path)
-    if use_bert_uncased or use_bert_cased:
+    if use_bert:
         train_iter, \
         val_iter, \
         word_to_ix, \
@@ -104,24 +108,41 @@ def main(data_path: str, saved_model_path: str) -> None:
             # Step 1. Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
             model.zero_grad()
-            word_batch_size = batch.sentence.shape[0]
-            sent_batch_size = batch.sentence.shape[1]
-            model.init_hidden(sent_batch_size=sent_batch_size, device=device)
+            if use_bert:
+                sentences_in, attention_masks, token_start_idx, targets, detokenized_sentences = batch
+                max_length = (attention_masks != 0).max(0)[0].nonzero()[-1].item()
+                if max_length < sentences_in.shape[1]:
+                    sentences_in = sentences_in[:, :max_length]
+                    attention_masks = attention_masks[:, :max_length]
+                sent_batch_size = sentences_in.shape[0]
+                word_batch_size = sentences_in.shape[1] - 2#subtract 2 for [CLS] and [SEP]
+                sent_lengths = [item for item in map(len, token_start_idx)]
+            else:
+                word_batch_size = batch.sentence.shape[0]
+                sent_batch_size = batch.sentence.shape[1]
+                sentences_in = batch.sentence.permute(1, 0).to(device)
+                targets = batch.tags.permute(1, 0).reshape(sent_batch_size * word_batch_size).to(device)
+                attention_masks = None
+                token_start_idx = None
+                detokenized_sentences = None
+                sent_lengths = train_iter.sent_lengths[batch_num - 1]
+            pdb.set_trace()
             #we want batch to be the first dimension
-            sentences_in = batch.sentence.permute(1,0).to(device)
-            targets = batch.tags.permute(1,0).reshape(sent_batch_size*word_batch_size).to(device)
             words_in = get_words_in(
                 sentences_in=sentences_in,
                 char_to_ix=char_to_ix,
                 ix_to_word=ix_to_word,
-                device=device
+                device=device,
+                detokenized_sentences=detokenized_sentences
             )
+            pdb.set_trace()
+            model.init_hidden(sent_batch_size=sent_batch_size, device=device)
             # Step 3. Run our forward pass.
             tag_logits = model(
                 sentences=sentences_in,
                 words=words_in,
                 char_hidden_dim=char_hidden_dim,
-                sent_lengths=train_iter.sent_lengths[batch_num-1],
+                sent_lengths=sent_lengths,
                 word_batch_size=word_batch_size,
                 device=device
             )

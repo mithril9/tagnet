@@ -33,7 +33,6 @@ class LSTMTagger(nn.Module):
             self.compressBertLinear = nn.Linear(bert_dim, embedding_dim)
         else:
             self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
-        pdb.set_trace()
         self.char_embeddings = nn.Embedding(char_vocab_size, char_embedding_dim)
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
@@ -43,7 +42,7 @@ class LSTMTagger(nn.Module):
             num_layers=2,
             batch_first=True,
             bidirectional=True,
-            lstm_dropout=lstm_dropout
+            dropout=lstm_dropout
         )
         self.char_lstm = nn.LSTM(
             char_embedding_dim,
@@ -57,9 +56,15 @@ class LSTMTagger(nn.Module):
 
     def get_bert_model(self):
         if use_bert_uncased:
-            cased_uncased = "bert-base-uncased"
-        else:
-            cased_uncased = "bert-base-cased"
+            if use_bert_large:
+                cased_uncased = "bert-large-uncased"
+            else:
+                cased_uncased = "bert-base-uncased"
+        elif use_bert_cased:
+            if use_bert_large:
+                cased_uncased = "bert-large-uncased"
+            else:
+                cased_uncased = "bert-base-cased"
         device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_available) else "cpu")
         bert = BertModel.from_pretrained(cased_uncased).to(device=torch.device(device))
         if data_parallel:

@@ -46,7 +46,7 @@ class BertTokenizedDataset(Dataset):
             encoded_dict = tokenizer.encode_plus(
                 sent,  # Sentence to encode.
                 add_special_tokens=True,  # Add '[CLS]' and '[SEP]'
-                max_length=bert_max_seq_len,  # Pad & truncate all sentences.
+                max_length=512,  # Pad & truncate all sentences.
                 pad_to_max_length=True,
                 return_attention_mask=True,  # Construct attn. masks.
                 return_tensors='pt',  # Return pytorch tensors.
@@ -69,10 +69,7 @@ class BertTokenizedDataset(Dataset):
             subwords = list(map(tokenizer.tokenize, words))
             subword_lengths = list(map(len, subwords))
             #subwords = [CLS] + list(flatten(subwords)) + [SEP]
-            token_start_idxs.append(list(1 + np.cumsum([0] + subword_lengths[:-1])))
-            for item in token_start_idxs[-1]:
-                if item > bert_max_seq_len - 1:
-                    token_start_idxs[-1].remove(item)
+            token_start_idxs.append(list(np.cumsum([0] + subword_lengths))[1:])
         return token_start_idxs
 
     def __len__(self):

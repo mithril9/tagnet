@@ -51,7 +51,8 @@ def main(data_path: str, saved_model_path: str) -> None:
         #save the original copy so that the char embeddings para can be computed, hence we create a copy here.
         word_to_ix, ix_to_word = word_vocab.stoi, word_vocab.itos
         vocab_size = len(word_to_ix)
-    tag_to_ix, ix_to_tag = tag_vocab.stoi, tag_vocab.itos
+    word_to_ix, ix_to_word = copy.deepcopy(word_to_ix), copy.deepcopy(ix_to_word)
+    tag_to_ix, ix_to_tag = copy.deepcopy(tag_vocab.stoi), copy.deepcopy(tag_vocab.itos)
     char_to_ix_copy = copy.deepcopy(char_to_ix)
     model = LSTMTagger(
         embedding_dim=embedding_dim,
@@ -110,6 +111,8 @@ def main(data_path: str, saved_model_path: str) -> None:
             model.zero_grad()
             if use_bert:
                 sentences_in, attention_masks, token_start_idx, targets, original_sentences = batch
+                sentences_in = sentences_in.to(device)
+                targets = targets.to(device)
                 max_length = (attention_masks != 0).max(0)[0].nonzero()[-1].item()+1
                 if max_length < sentences_in.shape[1]:
                     sentences_in = sentences_in[:, :max_length]
@@ -130,7 +133,7 @@ def main(data_path: str, saved_model_path: str) -> None:
             #we want batch to be the first dimension
             words_in = get_words_in(
                 sentences_in=sentences_in,
-                char_to_ix=char_to_ix,
+                char_to_ix=char_to_ix_copy,
                 ix_to_word=ix_to_word,
                 device=device,
                 original_sentences_split=original_sentences_split
@@ -152,7 +155,7 @@ def main(data_path: str, saved_model_path: str) -> None:
             mask = targets != 1
             loss = loss_function(tag_logits, targets)
             loss /= mask.float().sum()
-            train_losses.append(round(loss.item(), 2))
+            train_losses.append(round(loss.item(), 4))
             loss.backward()
             optimizer.step()
         av_train_losses.append(sum(train_losses) / len(train_losses))
@@ -161,14 +164,15 @@ def main(data_path: str, saved_model_path: str) -> None:
             model=model,
             loss_function=loss_function,
             val_iter=val_iter,
-            char_to_ix=char_to_ix,
+            char_to_ix=char_to_ix_copy,
             ix_to_word=ix_to_word,
             ix_to_tag=ix_to_tag,
             av_eval_losses=av_eval_losses,
             use_bert=use_bert
         )
         print_results(epoch, accuracy, av_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, weighted_macro_recall, weighted_macro_f1)
-        if False and av_eval_losses[-1] < lowest_av_eval_loss:
+        continue
+        if av_eval_losses[-1] < lowest_av_eval_loss:
             lowest_av_eval_loss = av_eval_losses[-1]
             best_accuracy, \
             best_micro_precision, \
@@ -303,7 +307,7 @@ def remove_pads(y_true, y_pred):
     new_y_true = []
     new_y_pred = []
     for i in range(len(y_true)):
-        if y_true != "<pad>":
+        if y_true[i] != "<pad>":
             new_y_true.append(y_true[i])
             new_y_pred.append(y_pred[i])
     return new_y_true, new_y_pred

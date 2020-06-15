@@ -98,21 +98,20 @@ class LSTMTagger(nn.Module):
                 ) -> torch.Tensor:
         sent_batch_size = sentences.shape[0]
         if self.use_bert:
-            segment_ids = torch.zeros_like(attention_masks)
-            bert_last_layer = self.bert(sentences, segment_ids)[0]
-            try:
-                bert_token_reprs = []
-                for layer, starts in zip(bert_last_layer, token_start_idx):
-                    bert_token_reprs.append(layer[torch.tensor(starts).nonzero().squeeze(1)])
-                bert_token_reprs = [layer[torch.tensor(starts).nonzero().squeeze(1)] for layer, starts in zip(bert_last_layer, token_start_idx)]
-            except Exception:
-                pdb.set_trace()
-            padded_bert_token_reprs = pad_sequence(bert_token_reprs, batch_first=True, padding_value=-1)
-            embeds = self.compressBertLinear(padded_bert_token_reprs)
+            #segment_ids = torch.zeros_like(attention_masks)
+            bert_last_layer = self.bert(sentences, attention_masks)[0]
+            bert_token_reprs = []
+            for layer, starts in zip(bert_last_layer, token_start_idx):
+                bert_token_reprs.append(layer[torch.tensor(starts)])
+            #bert_token_reprs = [layer[torch.tensor(starts).nonzero().squeeze(1)] for layer, starts in zip(bert_last_layer, token_start_idx)]
+            padded_bert_token_reprs = pad_sequence(bert_token_reprs, batch_first=True, padding_value=0)
+            embeds = self.compressBertLinear(padded_bert_token_reprs[0]).unsqueeze(0)
+            for i in range(sent_batch_size-1):
+                embeds = torch.cat((embeds,self.compressBertLinear(padded_bert_token_reprs[i+1]).unsqueeze(0)), dim=0)
         else:
             embeds = self.word_embeddings(sentences)
         sent_len = words[0].shape[0]
-        char_final_hiddens = torch.zeros(sent_batch_size, sent_len, char_hidden_dim*2, requires_grad=False)
+        char_final_hiddens = torch.zeros(sent_batch_size, sent_len, char_hidden_dim*2)#, requires_grad=False)
         for sent in range(sent_batch_size):
             self.init_char_hidden(word_batch_size=word_batch_size, device=device)
             char_embeds = self.char_embeddings(words[sent])

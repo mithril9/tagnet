@@ -8,6 +8,7 @@ import pdb
 from typing import List, Optional
 from config import *
 from transformers import BertModel
+from torch.nn.utils.rnn import pad_sequence
 
 class LSTMTagger(nn.Module):
 
@@ -24,10 +25,14 @@ class LSTMTagger(nn.Module):
         self.hidden_dim = hidden_dim
         self.char_hidden_dim = char_hidden_dim
         if use_bert_uncased or use_bert_uncased:
+            self.use_bert = True
+        else:
+            self.use_bert = False
+        if self.use_bert:
             self.bert = self.get_bert_model()
-            if freeze_bert:
-                for param in self.bert.parameters():
-                    param.requires_grad = False
+            #we are not going to fine-tune the bert model itself
+            for param in self.bert.parameters():
+                param.requires_grad = False
             bert_dim = self.bert.embeddings.word_embeddings.weight.size()[1]
             #we use an affine transformation to compress the bert embeddings down to embedding_dim
             self.compressBertLinear = nn.Linear(bert_dim, embedding_dim)
@@ -87,10 +92,26 @@ class LSTMTagger(nn.Module):
                 char_hidden_dim: int,
                 sent_lengths: List[int],
                 word_batch_size: int,
-                device: torch.device) -> torch.Tensor:
+                device: torch.device,
+                attention_masks:torch.Tensor,
+                token_start_idx: List[int]
+                ) -> torch.Tensor:
         sent_batch_size = sentences.shape[0]
-        sent_len = sentences.shape[1]
-        embeds = self.word_embeddings(sentences)
+        if self.use_bert:
+            segment_ids = torch.zeros_like(attention_masks)
+            bert_last_layer = self.bert(sentences, segment_ids)[0]
+            try:
+                bert_token_reprs = []
+                for layer, starts in zip(bert_last_layer, token_start_idx):
+                    bert_token_reprs.append(layer[torch.tensor(starts).nonzero().squeeze(1)])
+                bert_token_reprs = [layer[torch.tensor(starts).nonzero().squeeze(1)] for layer, starts in zip(bert_last_layer, token_start_idx)]
+            except Exception:
+                pdb.set_trace()
+            padded_bert_token_reprs = pad_sequence(bert_token_reprs, batch_first=True, padding_value=-1)
+            embeds = self.compressBertLinear(padded_bert_token_reprs)
+        else:
+            embeds = self.word_embeddings(sentences)
+        sent_len = words[0].shape[0]
         char_final_hiddens = torch.zeros(sent_batch_size, sent_len, char_hidden_dim*2, requires_grad=False)
         for sent in range(sent_batch_size):
             self.init_char_hidden(word_batch_size=word_batch_size, device=device)

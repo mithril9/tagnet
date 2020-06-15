@@ -17,6 +17,7 @@ from typing import DefaultDict, Union, Optional
 from transformers import BertTokenizer
 from constants import *
 from collections import Counter
+from torch.nn.utils.rnn import pad_sequence
 
 createDatasetsReturnType = Union[Tuple[BucketIterator, BucketIterator, Vocab, Vocab, DefaultDict[str, int]],
                                  Tuple[BucketIterator]]
@@ -29,7 +30,7 @@ elif use_bert_cased:
 class BertTokenizedDataset(Dataset):
 
     def __init__(self, data_path_words: str, data_path_tags: str, tag_to_ix: Vocab):
-        self.original_sentences = open(data_path_words).readlines()
+        self.original_sentences = [sent.strip() for sent in open(data_path_words).readlines()]
         self.tags = open(data_path_tags).readlines()
         input_ids = []
         self.tag_ids = [[tag_to_ix[tag] for tag in tags.strip().split()] for tags in self.tags]
@@ -56,50 +57,30 @@ class BertTokenizedDataset(Dataset):
 
             # And its attention mask (simply differentiates padding from non-padding).
             self.attention_masks.append(encoded_dict['attention_mask'])
-
-        self.detokenized_sentences = self.get_detokenized_sentences(input_ids)
         self.token_start_idx = self.get_token_start_idxs()
         # Convert the lists into tensors.
         self.input_ids = torch.cat(input_ids, dim=0)
         self.attention_masks = torch.cat(self.attention_masks, dim=0)
 
-    def get_detokenized_sentences(self, input_ids):
-        #to ensure that the word level tokenization of the sentences matches the bert word-level tokenization
-        #(e.g. wrt punctuation) we will not use the sentences from the word file directly but instead glue the bert
-        #back together
-        detokenized_sentences=[]
-        for sent in input_ids:
-            sent_tokens = tokenizer.convert_ids_to_tokens(sent.squeeze(dim=0))
-            detokenized_words = []
-            current_word = None
-            for token in sent_tokens[1:-1]:
-                if token == "[PAD]":
-                    break
-                elif "##" in token:
-                    current_word += token[2:]
-                else:
-                    if current_word:
-                        detokenized_words.append(current_word)
-                    current_word = token
-            detokenized_sentences.append(" ".join(detokenized_words))
-        return detokenized_sentences
-
     def get_token_start_idxs(self):
         token_start_idxs = []
-        for sent in self.detokenized_sentences:
+        for sent in self.original_sentences:
             words = sent.split()
             subwords = list(map(tokenizer.tokenize, words))
             subword_lengths = list(map(len, subwords))
-            subwords = [CLS] + list(flatten(subwords)) + [SEP]
+            #subwords = [CLS] + list(flatten(subwords)) + [SEP]
             token_start_idxs.append(list(1 + np.cumsum([0] + subword_lengths[:-1])))
+            for item in token_start_idxs[-1]:
+                if item > bert_max_seq_len - 1:
+                    token_start_idxs[-1].remove(item)
         return token_start_idxs
 
     def __len__(self):
-        return len(self.detokenized_sentences)
+        return len(self.original_sentences)
 
     def __getitem__(self, idx):
         sample = {
-            'detokenized_sentence':    self.detokenized_sentences[idx],
+            'original_sentence':    self.original_sentences[idx],
             'tags':                 self.tags[idx],
             'input_ids':            self.input_ids[idx],
             'tag_ids':              self.tag_ids[idx],
@@ -122,7 +103,7 @@ class BertIxToWord:
         pass
 
     def __getitem__(self, idx):
-        return tokenizer.convert_ids_to_tokens(token)
+        return tokenizer.convert_ids_to_tokens(idx)
 
 
 def create_bert_datasets(data_path: str, mode: str):
@@ -166,7 +147,7 @@ def create_bert_datasets(data_path: str, mode: str):
 def get_char_vocab(dataset: BertTokenizedDataset):
     charCounter = Counter()
     for entry in dataset:
-        for word in entry['detokenized_sentence'].strip().split():
+        for word in entry['original_sentence'].strip().split():
             for char in word:
                 charCounter[char] += 1
     return Vocab(charCounter)
@@ -181,10 +162,10 @@ def collate_fn(sentences_batch):
     input_ids = torch.cat(tuple([torch.unsqueeze(features['input_ids'], dim=0) for features in sentences_batch]), dim=0)
     attention_masks = torch.cat(tuple([torch.unsqueeze(features['attention_mask'], dim=0) for features in sentences_batch]), dim=0)
     token_start_idx = [features['token_start_idx'] for features in sentences_batch]
-    detokenized_sentences = [features['detokenized_sentence'] for features in sentences_batch]
-    max_sent_len = len(max(token_start_idx))
-    tag_ids = torch.cat([torch.tensor(features['tag_ids'][:max_sent_len]) for features in sentences_batch], dim=0)
-    return input_ids, attention_masks, token_start_idx, tag_ids, detokenized_sentences
+    original_sentences = [features['original_sentence'] for features in sentences_batch]
+    max_sent_len = max([len(starts) for starts in token_start_idx])
+    tag_ids = pad_sequence([torch.tensor(features['tag_ids'][:max_sent_len]) for features in sentences_batch], batch_first=True, padding_value=1).view(-1)
+    return input_ids, attention_masks, token_start_idx, tag_ids, original_sentences
 
 
 def get_tag_vocab(data_path: str):
@@ -293,12 +274,16 @@ def get_words_in(
         char_to_ix: DefaultDict[str, int],
         ix_to_word: List[str],
         device: torch.device = 'cpu',
-        detokenized_sentences: Optional[List[str]] = None
+        original_sentences_split: Optional[List[List[str]]] = None
 ) -> List[torch.Tensor]:
     words_in = []
+    if original_sentences_split:
+        max_sent_len = max([len(sent) for sent in original_sentences_split])
     for i in range(sentences_in.shape[0]):
-        if detokenized_sentences:
-            sentence_words = detokenized_sentences[i].split(" ")
+        if original_sentences_split:
+            sentence_words = original_sentences_split[i]
+            while len(sentence_words) < max_sent_len:
+                sentence_words.append("<pad>")
         else:
             sentence_words = [ix_to_word[ix] for ix in sentences_in[i, :]]
         words_in.append([prepare_sequence(word, char_to_ix) for word in sentence_words])

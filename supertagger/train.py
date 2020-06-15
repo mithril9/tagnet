@@ -109,13 +109,14 @@ def main(data_path: str, saved_model_path: str) -> None:
             # We need to clear them out before each instance
             model.zero_grad()
             if use_bert:
-                sentences_in, attention_masks, token_start_idx, targets, detokenized_sentences = batch
-                max_length = (attention_masks != 0).max(0)[0].nonzero()[-1].item()
+                sentences_in, attention_masks, token_start_idx, targets, original_sentences = batch
+                max_length = (attention_masks != 0).max(0)[0].nonzero()[-1].item()+1
                 if max_length < sentences_in.shape[1]:
                     sentences_in = sentences_in[:, :max_length]
                     attention_masks = attention_masks[:, :max_length]
                 sent_batch_size = sentences_in.shape[0]
-                word_batch_size = sentences_in.shape[1] - 2#subtract 2 for [CLS] and [SEP]
+                original_sentences_split = [sent.split() for sent in original_sentences]
+                word_batch_size = max([len(sent) for sent in original_sentences_split])
                 sent_lengths = [item for item in map(len, token_start_idx)]
             else:
                 word_batch_size = batch.sentence.shape[0]
@@ -124,18 +125,16 @@ def main(data_path: str, saved_model_path: str) -> None:
                 targets = batch.tags.permute(1, 0).reshape(sent_batch_size * word_batch_size).to(device)
                 attention_masks = None
                 token_start_idx = None
-                detokenized_sentences = None
+                original_sentences_split = None
                 sent_lengths = train_iter.sent_lengths[batch_num - 1]
-            pdb.set_trace()
             #we want batch to be the first dimension
             words_in = get_words_in(
                 sentences_in=sentences_in,
                 char_to_ix=char_to_ix,
                 ix_to_word=ix_to_word,
                 device=device,
-                detokenized_sentences=detokenized_sentences
+                original_sentences_split=original_sentences_split
             )
-            pdb.set_trace()
             model.init_hidden(sent_batch_size=sent_batch_size, device=device)
             # Step 3. Run our forward pass.
             tag_logits = model(
@@ -144,25 +143,32 @@ def main(data_path: str, saved_model_path: str) -> None:
                 char_hidden_dim=char_hidden_dim,
                 sent_lengths=sent_lengths,
                 word_batch_size=word_batch_size,
-                device=device
+                device=device,
+                attention_masks=attention_masks,
+                token_start_idx=token_start_idx
             )
             # Step 4. Compute the loss, gradients, and update the parameters by
             #  calling optimizer.step()
+            mask = targets != 1
             loss = loss_function(tag_logits, targets)
+            loss /= mask.float().sum()
             train_losses.append(round(loss.item(), 2))
             loss.backward()
             optimizer.step()
         av_train_losses.append(sum(train_losses) / len(train_losses))
         accuracy, av_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, \
-        weighted_macro_recall, weighted_macro_f1 = eval_model(model=model,
-                                                              loss_function=loss_function,
-                                                              val_iter=val_iter,
-                                                              char_to_ix=char_to_ix,
-                                                              ix_to_word=ix_to_word,
-                                                              ix_to_tag=ix_to_tag,
-                                                              av_eval_losses=av_eval_losses)
+        weighted_macro_recall, weighted_macro_f1 = eval_model(
+            model=model,
+            loss_function=loss_function,
+            val_iter=val_iter,
+            char_to_ix=char_to_ix,
+            ix_to_word=ix_to_word,
+            ix_to_tag=ix_to_tag,
+            av_eval_losses=av_eval_losses,
+            use_bert=use_bert
+        )
         print_results(epoch, accuracy, av_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, weighted_macro_recall, weighted_macro_f1)
-        if av_eval_losses[-1] < lowest_av_eval_loss:
+        if False and av_eval_losses[-1] < lowest_av_eval_loss:
             lowest_av_eval_loss = av_eval_losses[-1]
             best_accuracy, \
             best_micro_precision, \
@@ -223,7 +229,8 @@ def eval_model(
         char_to_ix: DefaultDict[str, int],
         ix_to_word: List[str],
         ix_to_tag: List[str],
-        av_eval_losses: List[str]
+        av_eval_losses: List[str],
+        use_bert: bool
 ) -> evalModelReturn:
     # Evaluate the model
     model.eval()
@@ -235,24 +242,52 @@ def eval_model(
         eval_losses = []
         for batch in val_iter:
             batch_num += 1
-            word_batch_size = batch.sentence.shape[0]
-            sent_batch_size = batch.sentence.shape[1]
-            model.init_hidden(sent_batch_size=sent_batch_size, device=device)
-            sentences_in = batch.sentence.permute(1, 0).to(device)
-            targets = batch.tags.permute(1, 0).reshape(sent_batch_size * word_batch_size).to(device)
+            if use_bert:
+                sentences_in, attention_masks, token_start_idx, targets, original_sentences = batch
+                max_length = (attention_masks != 0).max(0)[0].nonzero()[-1].item() + 1
+                if max_length < sentences_in.shape[1]:
+                    sentences_in = sentences_in[:, :max_length]
+                    attention_masks = attention_masks[:, :max_length]
+                sent_batch_size = sentences_in.shape[0]
+                original_sentences_split = [sent.split() for sent in original_sentences]
+                word_batch_size = max([len(sent) for sent in original_sentences_split])
+                sent_lengths = [item for item in map(len, token_start_idx)]
+            else:
+                word_batch_size = batch.sentence.shape[0]
+                sent_batch_size = batch.sentence.shape[1]
+                sentences_in = batch.sentence.permute(1, 0).to(device)
+                targets = batch.tags.permute(1, 0).reshape(sent_batch_size * word_batch_size).to(device)
+                attention_masks = None
+                token_start_idx = None
+                original_sentences_split = None
+                sent_lengths = val_iter.sent_lengths[batch_num - 1]
             y_true += [ix_to_tag[ix.item()] for ix in targets]
-            words_in = get_words_in(sentences_in, char_to_ix, ix_to_word, device)
-            tag_logits = model(sentences=sentences_in,
-                               words=words_in,
-                               char_hidden_dim=char_hidden_dim,
-                               sent_lengths=val_iter.sent_lengths[batch_num - 1],
-                               word_batch_size=word_batch_size,
-                               device=device)
+            words_in = get_words_in(
+                sentences_in=sentences_in,
+                char_to_ix=char_to_ix,
+                ix_to_word=ix_to_word,
+                device=device,
+                original_sentences_split=original_sentences_split
+            )
+            model.init_hidden(sent_batch_size=sent_batch_size, device=device)
+            tag_logits = model(
+                sentences=sentences_in,
+                words=words_in,
+                char_hidden_dim=char_hidden_dim,
+                sent_lengths=sent_lengths,
+                word_batch_size=word_batch_size,
+                device=device,
+                attention_masks=attention_masks,
+                token_start_idx=token_start_idx
+            )
             eval_loss = loss_function(tag_logits, targets)
+            mask = targets != 1
+            eval_loss /= mask.float().sum()
             eval_losses.append(round(eval_loss.item(), 2))
             pred = categoriesFromOutput(tag_logits, ix_to_tag)
             y_pred += pred
         av_eval_losses.append(sum(eval_losses) / len(eval_losses))
+        y_true, y_pred = remove_pads(y_true, y_pred)
         accuracy = accuracy_score(y_true, y_pred)
         micro_precision, micro_recall, micro_f1, support = precision_recall_fscore_support(y_true, y_pred,
                                                                                            average='micro')
@@ -264,6 +299,14 @@ def eval_model(
     return accuracy, av_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, \
            weighted_macro_recall, weighted_macro_f1
 
+def remove_pads(y_true, y_pred):
+    new_y_true = []
+    new_y_pred = []
+    for i in range(len(y_true)):
+        if y_true != "<pad>":
+            new_y_true.append(y_true[i])
+            new_y_pred.append(y_pred[i])
+    return new_y_true, new_y_pred
 
 def print_results(
         epoch: int,

@@ -16,8 +16,8 @@ device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_ava
 
 def main(data_path: str, saved_model_path: str) -> None:
     embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim = load_hyper_params(saved_model_path)
-    word_vocab, tag_vocab, char_to_ix = load_vocab_and_char_to_ix(saved_model_path)
-    word_to_ix, ix_to_word, tag_to_ix, ix_to_tag = word_vocab.stoi, word_vocab.itos, tag_vocab.stoi, tag_vocab.itos
+    word_to_ix, ix_to_word, tag_vocab, char_to_ix = load_vocab_and_char_to_ix(saved_model_path)
+    tag_to_ix, ix_to_tag = tag_vocab.stoi, tag_vocab.itos
     test_iter = create_datasets(
         data_path=data_path,
         mode=TEST,

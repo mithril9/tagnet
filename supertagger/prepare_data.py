@@ -22,14 +22,10 @@ from torch.nn.utils.rnn import pad_sequence
 createDatasetsReturnType = Union[Tuple[BucketIterator, BucketIterator, Vocab, Vocab, DefaultDict[str, int]],
                                  Tuple[BucketIterator]]
 
-if use_bert_uncased:
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
-elif use_bert_cased:
-    tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
-
 class BertTokenizedDataset(Dataset):
 
-    def __init__(self, data_path_words: str, data_path_tags: str, tag_to_ix: Vocab):
+    def __init__(self, data_path_words: str, data_path_tags: str, tag_to_ix: Vocab, tokenizer: BertTokenizer):
+        self.tokenizer = tokenizer
         self.original_sentences = [sent.strip() for sent in open(data_path_words).readlines()]
         self.tags = open(data_path_tags).readlines()
         input_ids = []
@@ -43,7 +39,7 @@ class BertTokenizedDataset(Dataset):
             #   (4) Map tokens to their IDs.
             #   (5) Pad or truncate the sentence to `max_length`
             #   (6) Create attention masks for [PAD] tokens.
-            encoded_dict = tokenizer.encode_plus(
+            encoded_dict = self.tokenizer.encode_plus(
                 sent,  # Sentence to encode.
                 add_special_tokens=True,  # Add '[CLS]' and '[SEP]'
                 max_length=512,  # Pad & truncate all sentences.
@@ -66,7 +62,7 @@ class BertTokenizedDataset(Dataset):
         token_start_idxs = []
         for sent in self.original_sentences:
             words = sent.split()
-            subwords = list(map(tokenizer.tokenize, words))
+            subwords = list(map(self.tokenizer.tokenize, words))
             subword_lengths = list(map(len, subwords))
             #subwords = [CLS] + list(flatten(subwords)) + [SEP]
             token_start_idxs.append(list(np.cumsum([0] + subword_lengths))[1:])
@@ -88,37 +84,55 @@ class BertTokenizedDataset(Dataset):
 
 class BertTokenToIx:
 
-    def __init__(self):
-        pass
+    def __init__(self, tokenizer: BertTokenizer):
+        self.tokenizer = tokenizer
 
     def __getitem__(self, token):
-        return tokenizer.convert_tokens_to_ids(token)
+        return self.tokenizer.convert_tokens_to_ids(token)
 
-class BertIxToWord:
+class BertIxToToken:
 
-    def __init__(self):
-        pass
+    def __init__(self, tokenizer: BertTokenizer):
+        self.tokenizer = tokenizer
 
     def __getitem__(self, idx):
-        return tokenizer.convert_ids_to_tokens(idx)
+        return self.tokenizer.convert_ids_to_tokens(idx)
 
 
-def create_bert_datasets(data_path: str, mode: str):
+def create_bert_datasets(
+        data_path: str,
+        mode: str,
+        use_bert_cased: bool,
+        use_bert_uncased: bool,
+        use_bert_large: bool
+):
+    if use_bert_uncased:
+        if use_bert_large:
+            tokenizer = BertTokenizer.from_pretrained('bert-large-uncased', do_lower_case=True)
+        else:
+            tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+    elif use_bert_cased:
+        if use_bert_large:
+            tokenizer = BertTokenizer.from_pretrained('bert-large-cased')
+        else:
+            tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
     if mode == TRAIN:
         tag_vocab = get_tag_vocab(os.path.join(data_path))
         tag_to_ix, ix_to_tag = tag_vocab.stoi, tag_vocab.itos
-        word_to_ix, ix_to_word = BertTokenToIx(), BertIxToWord()
+        word_to_ix, ix_to_word = BertTokenToIx(tokenizer), BertIxToToken(tokenizer)
         train_data_path = os.path.join(data_path, TRAIN)
         val_data_path = os.path.join(data_path, VAL)
         train_dataset = BertTokenizedDataset(
             data_path_words=train_data_path+".words",
             data_path_tags=train_data_path+".tags",
-            tag_to_ix=tag_to_ix
+            tag_to_ix=tag_to_ix,
+            tokenizer=tokenizer
         )
         val_dataset = BertTokenizedDataset(
             data_path_words=val_data_path+".words",
             data_path_tags=val_data_path+".tags",
-            tag_to_ix=tag_to_ix
+            tag_to_ix=tag_to_ix,
+            tokenizer=tokenizer
         )
 
         train_iter = DataLoader(

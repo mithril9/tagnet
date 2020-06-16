@@ -8,6 +8,8 @@ from typing import DefaultDict, Union, Tuple, Optional, List
 from lstm_model import LSTMTagger
 from numpy import float64
 from torchtext.vocab import Vocab
+from prepare_data import BertTokenToIx, BertIxToToken
+from collections import defaultdict
 
 loadModelReturn = Tuple[List[float],
                         List[float],
@@ -24,7 +26,8 @@ loadModelReturn = Tuple[List[float],
 def load_vocab_and_char_to_ix(saved_model_path: str) -> Tuple[Vocab, Vocab, DefaultDict[str, int]]:
     print("Attempting to load saved ix mappings from: " + saved_model_path)
     checkpoint = torch.load(saved_model_path)
-    return checkpoint['word_vocab'], \
+    return checkpoint['word_to_ix'], \
+           checkpoint['ix_to_word'], \
            checkpoint['tag_vocab'], \
            checkpoint['char_to_ix']
 
@@ -59,7 +62,10 @@ def load_hyper_params(saved_model_path: str) -> Tuple[int]:
     return checkpoint['embedding_dim'], \
            checkpoint['char_embedding_dim'], \
            checkpoint['hidden_dim'], \
-           checkpoint['char_hidden_dim']
+           checkpoint['char_hidden_dim'], \
+           checkpoint['use_bert_cased'], \
+           checkpoint['use_bert_uncased'], \
+           checkpoint['use_bert_large']
 
 def save_model(epoch: int,
                model: LSTMTagger,
@@ -67,7 +73,8 @@ def save_model(epoch: int,
                av_train_losses: List[float],
                av_eval_losses: List[float],
                model_file_name: str,
-               word_vocab: Vocab,
+               word_to_ix: Union[BertTokenToIx, defaultdict],
+               ix_to_word: Union[BertIxToToken, defaultdict],
                tag_vocab: Vocab,
                char_to_ix: DefaultDict[str, int],
                models_folder: str,
@@ -82,7 +89,11 @@ def save_model(epoch: int,
                micro_f1: float64,
                weighted_macro_precision: float64,
                weighted_macro_recall: float64,
-               weighted_macro_f1: float64) -> None:
+               weighted_macro_f1: float64,
+               use_bert_cased: bool,
+               use_bert_uncased: bool,
+               use_bert_large: bool
+               ) -> None:
     try:
         os.remove("../"+os.path.join(models_folder, model_file_name))
     except FileNotFoundError:
@@ -93,7 +104,8 @@ def save_model(epoch: int,
             'optimizer_state_dict': optimizer.state_dict(),
             'av_train_losses': av_train_losses,
             'av_eval_losses': av_eval_losses,
-            'word_vocab': word_vocab,
+            'word_to_ix': word_to_ix,
+            'ix_to_word': ix_to_word,
             'tag_vocab': tag_vocab,
             'char_to_ix': char_to_ix,
             'embedding_dim': embedding_dim,
@@ -107,6 +119,9 @@ def save_model(epoch: int,
             'micro_f1': micro_f1,
             'weighted_macro_precision': weighted_macro_precision,
             'weighted_macro_recall': weighted_macro_recall,
-            'weighted_macro_f1': weighted_macro_f1
+            'weighted_macro_f1': weighted_macro_f1,
+            'use_bert_cased': use_bert_cased,
+            'use_bert_uncased': use_bert_uncased,
+            'use_bert_large': use_bert_large
     }, "../"+os.path.join(models_folder, model_file_name))
     print("Model with lowest average eval loss successfully saved as: "+"../"+os.path.join(models_folder, model_file_name))

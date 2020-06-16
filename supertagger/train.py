@@ -26,20 +26,28 @@ device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_ava
 
 def main(data_path: str, saved_model_path: str) -> None:
     """The main training function"""
+    if saved_model_path:
+        global embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim, use_bert_cased, \
+            use_bert_uncased, use_bert_large
+        embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim, use_bert_cased, use_bert_uncased, \
+        use_bert_large = load_hyper_params(saved_model_path)
     if use_bert_uncased or use_bert_cased:
         use_bert = True
     else:
         use_bert = False
-    if saved_model_path:
-        global embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim
-        embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim = load_hyper_params(saved_model_path)
     if use_bert:
         train_iter, \
         val_iter, \
         word_to_ix, \
         ix_to_word, \
         tag_vocab, \
-        char_to_ix = create_bert_datasets(data_path=data_path, mode=TRAIN)
+        char_to_ix = create_bert_datasets(
+            data_path=data_path,
+            mode=TRAIN,
+            use_bert_cased=use_bert_cased,
+            use_bert_uncased=use_bert_uncased,
+            use_bert_large=use_bert_large
+        )
         vocab_size = None
     else:
         train_iter, \
@@ -62,7 +70,9 @@ def main(data_path: str, saved_model_path: str) -> None:
         char_embedding_dim=char_embedding_dim,
         char_hidden_dim=char_hidden_dim,
         char_vocab_size=len(char_to_ix),
-        lstm_dropout=float(lstm_dropout)
+        use_bert_cased=use_bert_cased,
+        use_bert_uncased=use_bert_uncased,
+        use_bert_large=use_bert_large
     )
     loss_function = CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
@@ -171,7 +181,6 @@ def main(data_path: str, saved_model_path: str) -> None:
             use_bert=use_bert
         )
         print_results(epoch, accuracy, av_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, weighted_macro_recall, weighted_macro_f1)
-        continue
         if av_eval_losses[-1] < lowest_av_eval_loss:
             lowest_av_eval_loss = av_eval_losses[-1]
             best_accuracy, \
@@ -195,7 +204,8 @@ def main(data_path: str, saved_model_path: str) -> None:
                 av_train_losses=av_train_losses,
                 av_eval_losses=av_eval_losses,
                 model_file_name=model_file_name,
-                word_vocab=word_vocab,
+                word_to_ix=word_to_ix,
+                ix_to_word=ix_to_word,
                 tag_vocab=tag_vocab,
                 char_to_ix=char_to_ix_copy,
                 models_folder=models_folder,
@@ -210,7 +220,10 @@ def main(data_path: str, saved_model_path: str) -> None:
                 micro_f1=best_micro_f1,
                 weighted_macro_precision=best_weighted_macro_precision,
                 weighted_macro_recall=best_weighted_macro_recall,
-                weighted_macro_f1=best_weighted_macro_f1
+                weighted_macro_f1=best_weighted_macro_f1,
+                use_bert_cased=use_bert_cased,
+                use_bert_uncased=use_bert_uncased,
+                use_bert_large=use_bert_large
                 )
     print_results(
         epoch=checkpoint_epoch,

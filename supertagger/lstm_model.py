@@ -6,9 +6,9 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import pdb
 from typing import List, Optional
-from config import *
 from transformers import BertModel
 from torch.nn.utils.rnn import pad_sequence
+from config import data_parallel
 
 class LSTMTagger(nn.Module):
 
@@ -20,7 +20,10 @@ class LSTMTagger(nn.Module):
                  char_embedding_dim: int,
                  char_hidden_dim: int,
                  char_vocab_size: int,
-                 lstm_dropout: float = 0) -> None:
+                 use_bert_cased: bool,
+                 use_bert_uncased: bool,
+                 use_bert_large: bool
+                 ) -> None:
         super(LSTMTagger, self).__init__()
         self.hidden_dim = hidden_dim
         self.char_hidden_dim = char_hidden_dim
@@ -29,7 +32,7 @@ class LSTMTagger(nn.Module):
         else:
             self.use_bert = False
         if self.use_bert:
-            self.bert = self.get_bert_model()
+            self.bert = self.get_bert_model(use_bert_cased, use_bert_uncased, use_bert_large)
             #we are not going to fine-tune the bert model itself
             for param in self.bert.parameters():
                 param.requires_grad = False
@@ -46,8 +49,7 @@ class LSTMTagger(nn.Module):
             hidden_dim,
             num_layers=2,
             batch_first=True,
-            bidirectional=True,
-            dropout=lstm_dropout
+            bidirectional=True
         )
         self.char_lstm = nn.LSTM(
             char_embedding_dim,
@@ -59,19 +61,20 @@ class LSTMTagger(nn.Module):
         self.linear1 = nn.Linear(hidden_dim*2, hidden_dim)
         self.hidden2tag = nn.Linear(hidden_dim, tagset_size)
 
-    def get_bert_model(self):
+    def get_bert_model(self, use_bert_cased: bool, use_bert_uncased: bool, use_bert_large: bool):
         if use_bert_uncased:
             if use_bert_large:
-                cased_uncased = "bert-large-uncased"
+                which_bert = "bert-large-uncased"
             else:
-                cased_uncased = "bert-base-uncased"
+                which_bert = "bert-base-uncased"
         elif use_bert_cased:
             if use_bert_large:
-                cased_uncased = "bert-large-uncased"
+                which_bert = "bert-large-uncased"
             else:
-                cased_uncased = "bert-base-cased"
+                which_bert = "bert-base-cased"
+        print("Loading model: "+which_bert+"...")
         device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_available) else "cpu")
-        bert = BertModel.from_pretrained(cased_uncased).to(device=torch.device(device))
+        bert = BertModel.from_pretrained(which_bert).to(device=torch.device(device))
         if data_parallel:
             bert = torch.nn.DataParallel(bert)
         return bert

@@ -1,0 +1,6 @@
+TRAIN = 'train'
+TEST = 'test'
+VAL = 'val'
+TAG = 'tag'
+CLS = '[CLS]'
+SEP = '[SEP]'

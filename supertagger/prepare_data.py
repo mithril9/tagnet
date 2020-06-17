@@ -104,7 +104,8 @@ def create_bert_datasets(
         mode: str,
         use_bert_cased: bool,
         use_bert_uncased: bool,
-        use_bert_large: bool
+        use_bert_large: bool,
+        tag_to_ix=None
 ):
     if use_bert_uncased:
         if use_bert_large:
@@ -154,6 +155,23 @@ def create_bert_datasets(
         char_to_ix = char_vocab.stoi
 
         return train_iter, val_iter, word_to_ix, ix_to_word, tag_vocab, char_to_ix
+
+    else:
+        test_data_path = os.path.join(data_path, TEST)
+        test_dataset = BertTokenizedDataset(
+            data_path_words=test_data_path + ".words",
+            data_path_tags=test_data_path + ".tags",
+            tag_to_ix=tag_to_ix,
+            tokenizer=tokenizer
+        )
+        test_iter = DataLoader(
+            test_dataset,  # The test samples.
+            sampler=RandomSampler(test_dataset),  # Select batches randomly
+            batch_size=batch_size,  # Trains with this batch size.
+            collate_fn=collate_fn
+        )
+
+        return test_iter
 
 def get_char_vocab(dataset: BertTokenizedDataset):
     charCounter = Counter()
@@ -296,7 +314,7 @@ def get_words_in(
             while len(sentence_words) < max_sent_len:
                 sentence_words.append("<pad>")
         else:
-            sentence_words = [ix_to_word[ix] for ix in sentences_in[i, :]]
+            sentence_words = [ix_to_word[ix.item()] for ix in sentences_in[i, :]]
         words_in.append([prepare_sequence(word, char_to_ix) for word in sentence_words])
         words_in[-1] = batchify_sent(words_in[-1]).to(device)
     return words_in

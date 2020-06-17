@@ -49,6 +49,7 @@ def main(data_path: str, saved_model_path: str) -> None:
             use_bert_large=use_bert_large
         )
         vocab_size = None
+        word_vocab = None
     else:
         train_iter, \
         val_iter, \
@@ -59,9 +60,8 @@ def main(data_path: str, saved_model_path: str) -> None:
         #save the original copy so that the char embeddings para can be computed, hence we create a copy here.
         word_to_ix, ix_to_word = word_vocab.stoi, word_vocab.itos
         vocab_size = len(word_to_ix)
-    word_to_ix, ix_to_word = copy.deepcopy(word_to_ix), copy.deepcopy(ix_to_word)
-    tag_to_ix, ix_to_tag = copy.deepcopy(tag_vocab.stoi), copy.deepcopy(tag_vocab.itos)
-    char_to_ix_copy = copy.deepcopy(char_to_ix)
+    tag_to_ix, ix_to_tag = tag_vocab.stoi, tag_vocab.itos
+    char_to_ix_original = copy.deepcopy(char_to_ix)
     model = LSTMTagger(
         embedding_dim=embedding_dim,
         hidden_dim=hidden_dim,
@@ -143,7 +143,7 @@ def main(data_path: str, saved_model_path: str) -> None:
             #we want batch to be the first dimension
             words_in = get_words_in(
                 sentences_in=sentences_in,
-                char_to_ix=char_to_ix_copy,
+                char_to_ix=char_to_ix,
                 ix_to_word=ix_to_word,
                 device=device,
                 original_sentences_split=original_sentences_split
@@ -174,7 +174,7 @@ def main(data_path: str, saved_model_path: str) -> None:
             model=model,
             loss_function=loss_function,
             val_iter=val_iter,
-            char_to_ix=char_to_ix_copy,
+            char_to_ix=char_to_ix,
             ix_to_word=ix_to_word,
             ix_to_tag=ix_to_tag,
             av_eval_losses=av_eval_losses,
@@ -206,8 +206,9 @@ def main(data_path: str, saved_model_path: str) -> None:
                 model_file_name=model_file_name,
                 word_to_ix=word_to_ix,
                 ix_to_word=ix_to_word,
+                word_vocab=word_vocab,
                 tag_vocab=tag_vocab,
-                char_to_ix=char_to_ix_copy,
+                char_to_ix=char_to_ix_original,
                 models_folder=models_folder,
                 embedding_dim=embedding_dim,
                 char_embedding_dim=char_embedding_dim,
@@ -316,14 +317,6 @@ def eval_model(
     return accuracy, av_eval_loss, micro_precision, micro_recall, micro_f1, weighted_macro_precision, \
            weighted_macro_recall, weighted_macro_f1
 
-def remove_pads(y_true, y_pred):
-    new_y_true = []
-    new_y_pred = []
-    for i in range(len(y_true)):
-        if y_true[i] != "<pad>":
-            new_y_true.append(y_true[i])
-            new_y_pred.append(y_pred[i])
-    return new_y_true, new_y_pred
 
 def print_results(
         epoch: int,

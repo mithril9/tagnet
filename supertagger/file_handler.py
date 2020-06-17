@@ -28,6 +28,7 @@ def load_vocab_and_char_to_ix(saved_model_path: str) -> Tuple[Vocab, Vocab, Defa
     checkpoint = torch.load(saved_model_path)
     return checkpoint['word_to_ix'], \
            checkpoint['ix_to_word'], \
+           checkpoint['word_vocab'], \
            checkpoint['tag_vocab'], \
            checkpoint['char_to_ix']
 
@@ -75,6 +76,7 @@ def save_model(epoch: int,
                model_file_name: str,
                word_to_ix: Union[BertTokenToIx, defaultdict],
                ix_to_word: Union[BertIxToToken, defaultdict],
+               word_vocab: Optional[Vocab],
                tag_vocab: Vocab,
                char_to_ix: DefaultDict[str, int],
                models_folder: str,
@@ -106,6 +108,7 @@ def save_model(epoch: int,
             'av_eval_losses': av_eval_losses,
             'word_to_ix': word_to_ix,
             'ix_to_word': ix_to_word,
+            'word_vocab': word_vocab,
             'tag_vocab': tag_vocab,
             'char_to_ix': char_to_ix,
             'embedding_dim': embedding_dim,

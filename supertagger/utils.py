@@ -23,3 +23,12 @@ def plot_train_eval_loss(av_train_losses, av_eval_losses):
 
 def tokenize(sent: str):
     return word_tokenize(sent)
+
+def remove_pads(y_true, y_pred):
+    new_y_true = []
+    new_y_pred = []
+    for i in range(len(y_true)):
+        if y_true[i] != "<pad>":
+            new_y_true.append(y_true[i])
+            new_y_pred.append(y_pred[i])
+    return new_y_true, new_y_pred

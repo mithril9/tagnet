@@ -18,6 +18,7 @@ from transformers import BertTokenizer
 from constants import *
 from collections import Counter
 from torch.nn.utils.rnn import pad_sequence
+from nltk.tokenize import word_tokenize
 
 createDatasetsReturnType = Union[Tuple[BucketIterator, BucketIterator, Vocab, Vocab, DefaultDict[str, int]],
                                  Tuple[BucketIterator]]
@@ -64,7 +65,6 @@ class BertTokenizedDataset(Dataset):
             words = sent.split()
             subwords = list(map(self.tokenizer.tokenize, words))
             subword_lengths = list(map(len, subwords))
-            #subwords = [CLS] + list(flatten(subwords)) + [SEP]
             token_start_idxs.append(list(np.cumsum([0] + subword_lengths))[1:])
         return token_start_idxs
 
@@ -286,10 +286,17 @@ def create_csv(data_path: str) -> None:
 def prepare_untagged_data(
         data_path: str,
         word_to_ix: DefaultDict[str, int],
-        device: torch.device
+        device: torch.device,
+        tokenizer: Optional[BertTokenizer],
+        use_bert: bool
 ) -> Tuple[List[List[str]], List[torch.Tensor]]:
-    sentences = [tokenize(line) for line in open(data_path).readlines()]
-    sent_tensors = [prepare_sequence(sent, word_to_ix).view(1,-1).to(device) for sent in sentences]
+    if not tokenizer:
+        from nltk.tokenize import word_tokenize
+        sentences = [word_tokenize(line) for line in open(data_path).readlines()]
+        sent_tensors = [prepare_sequence(sent, word_to_ix).view(1, -1).to(device) for sent in sentences]
+    else:
+        sentences = [tokenizer.tokenize(line) for line in open(data_path).readlines()]
+        sent_tensors = [torch.tensor(tokenizer.encode(sent, add_special_tokens=True)).unsqueeze(0).to(device) for sent in sentences]
     return sentences, sent_tensors
 
 

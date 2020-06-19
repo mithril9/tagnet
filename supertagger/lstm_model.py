@@ -1,14 +1,18 @@
 """The neural network model.  Contains LSTMs for both words and characters"""
 
+#standard library imports
+from typing import List, Optional
+
+#third party imports
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-import pdb
-from typing import List, Optional
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 from transformers import BertModel
-from torch.nn.utils.rnn import pad_sequence
+
+#local imports
 from config import data_parallel
+
 
 class LSTMTagger(nn.Module):
 

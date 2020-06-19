@@ -1,14 +1,20 @@
 """Code for testing a saved model"""
 
+
+#standard library imports
+import argparse
+import copy
+
+#third party imports
+from transformers import BertTokenizer
+
+#local imports
+from constants import *
+from file_handler import *
 from lstm_model import LSTMTagger
 from prepare_data import *
-import argparse
-import pdb
-from file_handler import *
 from utils import *
-import copy
-from constants import *
-from transformers import BertTokenizer
+
 
 models_folder = 'models'
 device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_available) else "cpu")

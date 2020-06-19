@@ -1,14 +1,20 @@
 """Code for testing a saved model"""
 
-from lstm_model import LSTMTagger
-from prepare_data import *
+#standard library imports
 import argparse
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from file_handler import *
-from utils import *
 import copy
+
+#third party imports
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+
+#local imports
 from config import *
 from constants import *
+from file_handler import *
+from lstm_model import LSTMTagger
+from prepare_data import *
+from utils import *
+
 
 models_folder = 'models'
 device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_available) else "cpu")

@@ -1,15 +1,20 @@
 """Code for training the model"""
 
+#standard library imports
+import os
+from numpy import float64
+from typing import DefaultDict, Union, Tuple, Optional, List
+from collections import defaultdict
+
+#third party imports
 import torch
 from torch.optim.adam import Adam
-import os, pdb
 from torchtext.vocab import Vocab
-from typing import DefaultDict, Union, Tuple, Optional, List
+
+#local imports
 from lstm_model import LSTMTagger
-from numpy import float64
-from torchtext.vocab import Vocab
 from prepare_data import BertTokenToIx, BertIxToToken
-from collections import defaultdict
+
 
 loadModelReturn = Tuple[List[float],
                         List[float],

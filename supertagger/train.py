@@ -1,22 +1,27 @@
 """Code for training the model"""
 
-from lstm_model import LSTMTagger
-from config import *
-from prepare_data import *
+#standard library imports
+import argparse
+import copy
+import os
+from numpy import float64
+from time import strftime
+from typing import DefaultDict, List, Tuple
+
+#third party imports
 import torch.optim as optim
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from torch.nn import CrossEntropyLoss
 from torchtext.data.iterator import BucketIterator, Iterator
-import argparse
-import os
-import pdb
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from time import strftime
-from file_handler import *
-from utils import *
-import copy
-from typing import Union, DefaultDict, List, Tuple
-from numpy import float64
+
+#local imports
+from config import *
 from constants import *
+from file_handler import *
+from lstm_model import LSTMTagger
+from prepare_data import *
+from utils import *
+
 
 evalModelReturn = Tuple[float64, float, float64, float64, float64, float64, float64, float64]
 

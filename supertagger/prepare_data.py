@@ -1,24 +1,26 @@
 """Preprocesses data for the supertagger"""
 
-import torch
+#standard library imports
+import os
+import pandas as pd
+from collections import Counter
+from constants import *
+from typing import List, Tuple, DefaultDict, Union, Optional
+
+#third party imports
 import numpy as np
+import torch
+from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, Dataset
 from torchtext.data import Field, BucketIterator, Iterator, TabularDataset
 from torchtext.data.dataset import TabularDataset
 from torchtext.vocab import Vocab
-from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, Dataset
-import pdb
-import os
-from typing import List,  Tuple
-#from sklearn.model_selection import train_test_split
-import pandas as pd
+from transformers import BertTokenizer
+
+#local imports
 from config import *
 from utils import *
-from typing import DefaultDict, Union, Optional
-from transformers import BertTokenizer
-from constants import *
-from collections import Counter
-from torch.nn.utils.rnn import pad_sequence
-from nltk.tokenize import word_tokenize
+
 
 createDatasetsReturnType = Union[Tuple[BucketIterator, BucketIterator, Vocab, Vocab, DefaultDict[str, int]],
                                  Tuple[BucketIterator]]

@@ -1,4 +1,5 @@
-"""Configuration of hyperparameters for the supertagger"""
+"""hyperparameters for the supertagger"""
+
 
 #Parameters which are saved and loaded with the model (these are only laoded from this file if training a model from scratch):
 
@@ -12,7 +13,7 @@ use_bert_large =  False
 
 #Parameters which are not saved (these will always be loaded from this file even when a saved model is loaded)
 
-num_epochs = 5
+num_epochs = 40
 batch_size = 32
 learning_rate = 0.001
 weight_decay = 0

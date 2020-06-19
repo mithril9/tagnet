@@ -1,9 +1,21 @@
 """Useful utility functions"""
 
-import matplotlib.pyplot as plt
-from nltk.tokenize import word_tokenize
+#standard library imports
+from typing import List, Tuple
 
-def categoriesFromOutput(tag_scores, ix_to_tag):
+#third party imports
+import matplotlib.pyplot as plt
+from torch import Tensor
+
+#local imports
+
+
+def categoriesFromOutput(tag_scores: Tensor, ix_to_tag: List[str]) -> List[str]:
+    """
+    Takes a torch.Tensor of scores for each tag for each word in each sentence
+    and returns a flattened list of strings, where each string corresponds to a tag
+    in some sentence.
+    """
     predictions = []
     top_n, top_i = tag_scores.topk(1, dim=1)
     #unroll all batches into one long sequence for convenience
@@ -13,7 +25,7 @@ def categoriesFromOutput(tag_scores, ix_to_tag):
         predictions.append(pred)
     return predictions
 
-def plot_train_eval_loss(av_train_losses, av_eval_losses):
+def plot_train_eval_loss(av_train_losses: List[float], av_eval_losses: List[float]) -> None:
     plt.xlabel("n epochs")
     plt.ylabel("loss")
     plt.plot(av_train_losses, label='train')
@@ -21,10 +33,12 @@ def plot_train_eval_loss(av_train_losses, av_eval_losses):
     plt.legend(loc='upper left')
     plt.show()
 
-def tokenize(sent: str):
-    return word_tokenize(sent)
-
-def remove_pads(y_true, y_pred):
+def remove_pads(y_true: List[str], y_pred: List[str]) -> Tuple[List[str], List[str]]:
+    """
+    Takes as input two lists of strings corresponding to the predicted and actual tags
+    and returns the same lists except that any <pad> tags in y_true are removed and the tags
+    corresponding to the same index position in y_pred are also removed.
+    """
     new_y_true = []
     new_y_pred = []
     for i in range(len(y_true)):

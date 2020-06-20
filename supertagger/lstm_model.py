@@ -35,7 +35,7 @@ class LSTMTagger(nn.Module):
         super(LSTMTagger, self).__init__()
         self.hidden_dim = hidden_dim
         self.char_hidden_dim = char_hidden_dim
-        if use_bert_uncased or use_bert_uncased:
+        if use_bert_uncased or use_bert_cased:
             self.use_bert = True
         else:
             self.use_bert = False

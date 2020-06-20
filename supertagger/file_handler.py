@@ -105,7 +105,7 @@ def save_model(epoch: int,
                use_bert_large: bool
                ) -> None:
     try:
-        os.remove("../"+os.path.join(models_folder, model_file_name))
+        os.remove(os.path.join("..", models_folder, model_file_name))
     except FileNotFoundError:
         pass
     torch.save({
@@ -134,5 +134,5 @@ def save_model(epoch: int,
             'use_bert_cased': use_bert_cased,
             'use_bert_uncased': use_bert_uncased,
             'use_bert_large': use_bert_large
-    }, "../"+os.path.join(models_folder, model_file_name))
-    print("Model with lowest average eval loss successfully saved as: "+"../"+os.path.join(models_folder, model_file_name))
+    }, os.path.join("..", models_folder, model_file_name))
+    print("Model with lowest average eval loss successfully saved as: "+os.path.join("..", models_folder, model_file_name))

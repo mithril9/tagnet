@@ -296,7 +296,7 @@ def get_char_to_ix(dataset: TabularDataset) -> DefaultDict[str, int]:
     chars = " ".join(char_list)
     df = pd.DataFrame({'chars':[chars]}, columns=["chars"])
     df.to_csv('chars.csv', index=False)
-    dummy_dataset = TabularDataset(path="./chars.csv", format='csv', fields=field_list, skip_header=True)
+    dummy_dataset = TabularDataset(path=os.path.join(os.getcwd(), "chars.csv"), format='csv', fields=field_list, skip_header=True)
     char_field.build_vocab(dummy_dataset)
     os.remove('chars.csv')
     return char_field.vocab.stoi
@@ -337,7 +337,7 @@ def prepare_untagged_data(
     """
     if not tokenizer:
         from nltk.tokenize import word_tokenize
-        sentences = [word_tokenize(line) for line in open(data_path).readlines()]
+        sentences = [word_tokenize(line.lower()) for line in open(data_path).readlines()]
         sent_tensors = [prepare_sequence(sent, word_to_ix).view(1, -1).to(device) for sent in sentences]
     else:
         sentences = [tokenizer.tokenize(line) for line in open(data_path).readlines()]

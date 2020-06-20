@@ -84,8 +84,8 @@ def main(data_path: str, saved_model_path: str) -> None:
     )
     loss_function = CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    if models_folder not in os.listdir("../"):
-        os.mkdir("../"+models_folder)
+    if models_folder not in os.listdir(".."):
+        os.mkdir(os.path.join("..", models_folder))
     if saved_model_path:
         av_train_losses, \
         av_eval_losses, \

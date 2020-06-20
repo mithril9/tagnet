@@ -51,7 +51,7 @@ pip install transformers==2.11.0
 
 ## Usage
 
-# Data Preparation
+### Data Preparation
 
 For training the supertagger you will need to prepare separate training and validation data sets, and you may also want a separate test set to get a completely unbiased evaluation of your model.  Each dataset should be split into two files, one of which contains the sentences to Examples of these files are included in the folder tagnet/data/dummy where you will note that there are the following six files:
 
@@ -71,6 +71,8 @@ python getCCGsupertags.py ccg/
 ```
 
 This will create a folder named ccg_supertag_data/ which contains all 6 of the required files using the standard test/validation/test split from the literature on CCG parsing and supertagging.
+
+### Training
 
 
 

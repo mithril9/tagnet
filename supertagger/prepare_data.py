@@ -11,6 +11,7 @@ from constants import *
 from typing import List, Tuple, DefaultDict, Union, Optional, Dict
 
 #third party imports
+from nltk.tokenize import word_tokenize
 import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -319,7 +320,7 @@ def to_iter(dataset: TabularDataset, pad_ix: int, batch_size: int) -> BucketIter
 def create_csv(data_path: str) -> None:
     raw_sentences = open(data_path + ".words").readlines()
     raw_tag_sequences = open(data_path+".tags").readlines()
-    raw_data = {'sentence': [sent.strip() for sent in raw_sentences if sent != ''],
+    raw_data = {'sentence': [sent.strip() for " ".join(tokenize(sent)) in raw_sentences if sent != ''],
                 'tags': [tag_seq.strip() for tag_seq in raw_tag_sequences if tag_seq != '']}
     df = pd.DataFrame(raw_data, columns=["sentence", "tags"])
     df.to_csv(data_path+".csv", index=False)
@@ -336,7 +337,6 @@ def prepare_untagged_data(
     Compiles unseen, untagged sentences into a tuple of tokenized sentences and tensors ready to be input to the model.
     """
     if not tokenizer:
-        from nltk.tokenize import word_tokenize
         sentences = [word_tokenize(line.lower()) for line in open(data_path).readlines()]
         sent_tensors = [prepare_sequence(sent, word_to_ix).view(1, -1).to(device) for sent in sentences]
     else:

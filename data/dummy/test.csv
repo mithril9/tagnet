@@ -1,0 +1,5 @@
+sentence,tags
+The dog ate the apple .,DET NN V DET NN PUNC
+Everybody read that book .,NN V DET NN PUNC
+The cat caught a mouse .,DET NN V DET NN PUNC
+Someone discovered a secret .,NN V DET NN PUNC

@@ -1,4 +1,4 @@
-"""Code for testing a saved model"""
+"""Code for tagging unseen sentences, i.e. sentences which are not paired with tags in the data."""
 
 
 #standard library imports
@@ -21,6 +21,9 @@ device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_ava
 
 
 def main(data_path: str, dest_path:str, saved_model_path: str) -> None:
+    """
+    The function for tagging the unseen data.
+    """
     embedding_dim, char_embedding_dim, hidden_dim, char_hidden_dim, \
     use_bert_cased, use_bert_uncased, use_bert_large = load_hyper_params(saved_model_path)
     if use_bert_uncased:
@@ -78,7 +81,6 @@ def main(data_path: str, dest_path:str, saved_model_path: str) -> None:
             word_batch_size = len(sentence)
             sent_batch_size = 1
             if use_bert:
-                #ADD CLS and SEP before HERE!!!
                 subwords = list(map(tokenizer.tokenize, sentence))
                 subword_lengths = list(map(len, subwords))
                 token_start_idx = [list(np.cumsum([0] + subword_lengths))[1:]]

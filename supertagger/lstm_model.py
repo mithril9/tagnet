@@ -46,8 +46,9 @@ class LSTMTagger(nn.Module):
         else:
             self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
         self.char_embeddings = nn.Embedding(char_vocab_size, char_embedding_dim)
-        # The LSTM takes word embeddings as inputs, and outputs hidden states
-        # with dimensionality hidden_dim.
+        # The LSTM takes word embeddings (either bert or just randomly initialized) concateated with character-based
+        # LSTM final hidden state representations of each word as inputs, and outputs hidden states with dimensionality
+        # hidden_dim.
         self.lstm = nn.LSTM(
             embedding_dim + (char_hidden_dim*2),
             hidden_dim,
@@ -65,7 +66,7 @@ class LSTMTagger(nn.Module):
         self.linear1 = nn.Linear(hidden_dim*2, hidden_dim)
         self.hidden2tag = nn.Linear(hidden_dim, tagset_size)
 
-    def get_bert_model(self, use_bert_cased: bool, use_bert_uncased: bool, use_bert_large: bool):
+    def get_bert_model(self, use_bert_cased: bool, use_bert_uncased: bool, use_bert_large: bool) -> BertModel:
         if use_bert_uncased:
             if use_bert_large:
                 which_bert = "bert-large-uncased"
@@ -85,11 +86,13 @@ class LSTMTagger(nn.Module):
 
     def init_hidden(self, sent_batch_size: int, device: torch.device) ->  None:
         # The axes semantics are (num_layers*2, minibatch_size, hidden_dim)
+        # the *2 is because this is a bi-LSTM
         self.hidden = (torch.zeros(4, sent_batch_size, self.hidden_dim).to(device),
                 torch.zeros(4, sent_batch_size, self.hidden_dim).to(device))
 
     def init_char_hidden(self, word_batch_size: int, device: torch.device) -> None:
-        # The axes semantics are (num_layers, minibatch_size, hidden_dim)
+        # The axes semantics are (num_layers*2, minibatch_size, hidden_dim)
+        # the *2 is because this is a bi-LSTM
         self.char_hidden = (torch.zeros(2, word_batch_size, self.char_hidden_dim).to(device),
                 torch.zeros(2, word_batch_size, self.char_hidden_dim).to(device))
 
@@ -105,12 +108,12 @@ class LSTMTagger(nn.Module):
                 ) -> torch.Tensor:
         sent_batch_size = sentences.shape[0]
         if self.use_bert:
-            #segment_ids = torch.zeros_like(attention_masks)
             bert_last_layer = self.bert(sentences, attention_masks)[0]
             bert_token_reprs = []
+            #we only use the hidden state representations for the first subword token for each word because we only
+            #want to predict one supertag per word, not one per bert token.
             for layer, starts in zip(bert_last_layer, token_start_idx):
                 bert_token_reprs.append(layer[torch.tensor(starts)])
-            #bert_token_reprs = [layer[torch.tensor(starts).nonzero().squeeze(1)] for layer, starts in zip(bert_last_layer, token_start_idx)]
             padded_bert_token_reprs = pad_sequence(bert_token_reprs, batch_first=True, padding_value=0)
             embeds = self.compressBertLinear(padded_bert_token_reprs[0]).unsqueeze(0)
             for i in range(sent_batch_size-1):

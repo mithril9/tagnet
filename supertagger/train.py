@@ -121,8 +121,6 @@ def main(data_path: str, saved_model_path: str) -> None:
                 if batch_num != 1:
                     print("\nAverage Training loss for epoch {} at end of batch {}: {}".format(epoch, str(batch_num-1),sum(train_losses)/len(train_losses)))
                 print('\n======== at batch {} / {} ========'.format(batch_num, len(train_iter)))
-            # Step 1. Remember that Pytorch accumulates gradients.
-            # We need to clear them out before each instance
             model.zero_grad()
             if use_bert:
                 sentences_in, attention_masks, token_start_idx, targets, original_sentences = batch
@@ -145,7 +143,6 @@ def main(data_path: str, saved_model_path: str) -> None:
                 token_start_idx = None
                 original_sentences_split = None
                 sent_lengths = train_iter.sent_lengths[batch_num - 1]
-            #we want batch to be the first dimension
             words_in = get_words_in(
                 sentences_in=sentences_in,
                 char_to_ix=char_to_ix,
@@ -154,7 +151,6 @@ def main(data_path: str, saved_model_path: str) -> None:
                 original_sentences_split=original_sentences_split
             )
             model.init_hidden(sent_batch_size=sent_batch_size, device=device)
-            # Step 3. Run our forward pass.
             tag_logits = model(
                 sentences=sentences_in,
                 words=words_in,
@@ -165,8 +161,6 @@ def main(data_path: str, saved_model_path: str) -> None:
                 attention_masks=attention_masks,
                 token_start_idx=token_start_idx
             )
-            # Step 4. Compute the loss, gradients, and update the parameters by
-            #  calling optimizer.step()
             mask = targets != 1
             loss = loss_function(tag_logits, targets)
             loss /= mask.float().sum()
@@ -255,7 +249,9 @@ def eval_model(
         av_eval_losses: List[str],
         use_bert: bool
 ) -> evalModelReturn:
-    # Evaluate the model
+    """
+    Function for evaluating the model being trained.
+    """
     model.eval()
     y_pred = []
     y_true = []

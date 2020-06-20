@@ -3,9 +3,9 @@
 #standard library imports
 import os
 import pandas as pd
-from collections import Counter
+from collections import Counter, defaultdict
 from constants import *
-from typing import List, Tuple, DefaultDict, Union, Optional
+from typing import List, Tuple, DefaultDict, Union, Optional, Dict
 
 #third party imports
 import numpy as np
@@ -26,8 +26,12 @@ createDatasetsReturnType = Union[Tuple[BucketIterator, BucketIterator, Vocab, Vo
                                  Tuple[BucketIterator]]
 
 class BertTokenizedDataset(Dataset):
+    """
+    The main class containing the Bert-tokenized dataset.  The data is subsequently transferred into a DataLoader object
+    so that it can be iterated over without having to be loaded into memory all at once (see create_bert_datasets() below).
+    """
 
-    def __init__(self, data_path_words: str, data_path_tags: str, tag_to_ix: Vocab, tokenizer: BertTokenizer):
+    def __init__(self, data_path_words: str, data_path_tags: str, tag_to_ix: Vocab, tokenizer: BertTokenizer) -> None:
         self.tokenizer = tokenizer
         self.original_sentences = [sent.strip() for sent in open(data_path_words).readlines()]
         self.tags = open(data_path_tags).readlines()
@@ -50,18 +54,19 @@ class BertTokenizedDataset(Dataset):
                 return_attention_mask=True,  # Construct attn. masks.
                 return_tensors='pt',  # Return pytorch tensors.
             )
-
-            # Add the encoded sentence to the list.
             input_ids.append(encoded_dict['input_ids'])
-
             # And its attention mask (simply differentiates padding from non-padding).
             self.attention_masks.append(encoded_dict['attention_mask'])
         self.token_start_idx = self.get_token_start_idxs()
-        # Convert the lists into tensors.
         self.input_ids = torch.cat(input_ids, dim=0)
         self.attention_masks = torch.cat(self.attention_masks, dim=0)
 
-    def get_token_start_idxs(self):
+    def get_token_start_idxs(self) -> List[int]:
+        """
+        Returns a list of token start indexes.  Needed because the bert tokenization breaks many (unseen) words up.
+        For example "isolationist" -> ['isolation', '##ist'].   For the final supertagging we only want one supertag per
+        word so we will just use the hidden state of the first subtoken for each word and token_start_idxs enables this.
+        """
         token_start_idxs = []
         for sent in self.original_sentences:
             words = sent.split()
@@ -70,10 +75,10 @@ class BertTokenizedDataset(Dataset):
             token_start_idxs.append(list(np.cumsum([0] + subword_lengths))[1:])
         return token_start_idxs
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.original_sentences)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> Dict:
         sample = {
             'original_sentence':    self.original_sentences[idx],
             'tags':                 self.tags[idx],
@@ -85,6 +90,10 @@ class BertTokenizedDataset(Dataset):
         return sample
 
 class BertTokenToIx:
+    """
+    A wrapper class for the BertTokenizer method convert_tokens_to_ids()
+    allowing thesame syntax as standard python dictioaries.
+    """
 
     def __init__(self, tokenizer: BertTokenizer):
         self.tokenizer = tokenizer
@@ -93,12 +102,19 @@ class BertTokenToIx:
         return self.tokenizer.convert_tokens_to_ids(token)
 
 class BertIxToToken:
+    """
+    A wrapper class for the BertTokenizer method convert_ids_to_token()
+    allowing thesame syntax as standard python dictionaries.
+    """
 
     def __init__(self, tokenizer: BertTokenizer):
         self.tokenizer = tokenizer
 
     def __getitem__(self, idx):
         return self.tokenizer.convert_ids_to_tokens(idx)
+
+
+createBertDatasetsReturnType = Union[Tuple[DataLoader, DataLoader, BertTokenToIx, BertIxToToken, Vocab, defaultdict], DataLoader]
 
 
 def create_bert_datasets(
@@ -108,7 +124,10 @@ def create_bert_datasets(
         use_bert_uncased: bool,
         use_bert_large: bool,
         tag_to_ix=None
-):
+) -> createBertDatasetsReturnType:
+    """
+    The main function which compiles the data first into a BertTokenizedDataset object and the into a DataLoader object.
+    """
     if use_bert_uncased:
         if use_bert_large:
             tokenizer = BertTokenizer.from_pretrained('bert-large-uncased', do_lower_case=True)
@@ -139,20 +158,18 @@ def create_bert_datasets(
         )
 
         train_iter = DataLoader(
-            train_dataset,  # The training samples.
-            sampler=RandomSampler(train_dataset),  # Select batches randomly
-            batch_size=batch_size,  # Trains with this batch size.
+            train_dataset,
+            sampler=RandomSampler(train_dataset),
+            batch_size=batch_size,
             collate_fn=collate_fn
         )
-
         # For validation the order doesn't matter, so we'll just read them sequentially.
         val_iter = DataLoader(
-            val_dataset,  # The validation samples.
-            sampler=SequentialSampler(val_dataset),  # Pull out batches sequentially.
-            batch_size=batch_size,  # Evaluate with this batch size.
+            val_dataset,
+            sampler=SequentialSampler(val_dataset),
+            batch_size=batch_size,
             collate_fn=collate_fn
         )
-
         char_vocab = get_char_vocab(train_dataset)
         char_to_ix = char_vocab.stoi
 
@@ -167,29 +184,29 @@ def create_bert_datasets(
             tokenizer=tokenizer
         )
         test_iter = DataLoader(
-            test_dataset,  # The test samples.
-            sampler=RandomSampler(test_dataset),  # Select batches randomly
-            batch_size=batch_size,  # Trains with this batch size.
+            test_dataset,
+            sampler=SequentialSampler(test_dataset),
+            batch_size=batch_size,
             collate_fn=collate_fn
         )
 
         return test_iter
 
-def get_char_vocab(dataset: BertTokenizedDataset):
-    charCounter = Counter()
-    for entry in dataset:
-        for word in entry['original_sentence'].strip().split():
-            for char in word:
-                charCounter[char] += 1
-    return Vocab(charCounter)
 
-def flatten(list_of_lists):
-    flattened_list = []
-    for LIST in list_of_lists:
-        flattened_list += LIST
-    return flattened_list
+def collate_fn(sentences_batch: List[Dict]) -> Tuple[torch.Tensor,
+                                                     torch.Tensor,
+                                                     List[List[int]],
+                                                     torch.Tensor,
+                                                     List[str]]:
+    """
+    Determines how the data is returned when DataLoader object is iterated over.
+    The dictionaries inside the sentences_batch list each have the following structure:
 
-def collate_fn(sentences_batch):
+    {'original_sentence': 'Someone discovered a secret .', 'tags': 'NN V DET NN PUNC',
+    'input_ids': tensor([ 101, 2619, 3603, 1037, 3595, 1012,  102,    0,    0,    0,    0,    0,
+    0,    0,   ]), 'tag_ids': [2, 5, 3, 2, 4], 'attention_mask': tensor([1, 1, 1, 1, 1, 1, 1,
+    0, 0, 0, 0, 0, 0, 0, ]), 'token_start_idx': [1, 2, 3, 4, 5]}
+    """
     input_ids = torch.cat(tuple([torch.unsqueeze(features['input_ids'], dim=0) for features in sentences_batch]), dim=0)
     attention_masks = torch.cat(tuple([torch.unsqueeze(features['attention_mask'], dim=0) for features in sentences_batch]), dim=0)
     token_start_idx = [features['token_start_idx'] for features in sentences_batch]
@@ -199,7 +216,16 @@ def collate_fn(sentences_batch):
     return input_ids, attention_masks, token_start_idx, tag_ids, original_sentences
 
 
-def get_tag_vocab(data_path: str):
+def get_char_vocab(dataset: BertTokenizedDataset) -> Vocab:
+    charCounter = Counter()
+    for entry in dataset:
+        for word in entry['original_sentence'].strip().split():
+            for char in word:
+                charCounter[char] += 1
+    return Vocab(charCounter)
+
+
+def get_tag_vocab(data_path: str) -> Vocab:
     tagCounter = Counter()
     for line in open(os.path.join(data_path, 'train.tags')):
         for tag in line.strip().split():
@@ -207,7 +233,18 @@ def get_tag_vocab(data_path: str):
     return Vocab(tagCounter)
 
 
-def create_datasets(data_path: str, mode: str, word_to_ix=None, word_vocab=None, tag_vocab=None) -> createDatasetsReturnType:
+def create_datasets(
+        data_path: str,
+        mode: str,
+        word_to_ix=None,
+        word_vocab=None,
+        tag_vocab=None
+) -> Union[createDatasetsReturnType, BucketIterator]:
+    """
+    Used when bert embeddings are switched off (i.e. we just used randomly initialized embeddings.
+    Compiles the data first into a TabularDataset object and then into a BucketIterator
+    (similar to a DataLoader) object via the function to_iter().
+    """
     sent_field = Field(lower=True)
     tag_field = Field()
     data_fields = [('sentence', sent_field), ('tags', tag_field)]
@@ -292,6 +329,9 @@ def prepare_untagged_data(
         tokenizer: Optional[BertTokenizer],
         use_bert: bool
 ) -> Tuple[List[List[str]], List[torch.Tensor]]:
+    """
+    Compiles unseen, untagged sentences into a tuple of tokenized sentences and tensors ready to be input to the model.
+    """
     if not tokenizer:
         from nltk.tokenize import word_tokenize
         sentences = [word_tokenize(line) for line in open(data_path).readlines()]
@@ -303,7 +343,11 @@ def prepare_untagged_data(
 
 
 def prepare_sequence(seq: List[str], to_ix: DefaultDict[str, int]) -> torch.Tensor:
+    """
+    Converts a sequence (used here for characters) into a tensor of integers.
+    """
     idxs = [to_ix[w] for w in seq]
+
     return torch.tensor(idxs, dtype=torch.long)
 
 
@@ -314,6 +358,10 @@ def get_words_in(
         device: torch.device = 'cpu',
         original_sentences_split: Optional[List[List[str]]] = None
 ) -> List[torch.Tensor]:
+    """
+    Converts sentences into a list of (padded) 2d torch tensors in which each row vector represents a word, which each
+    integer value of the row vector representing a character.
+    """
     words_in = []
     if original_sentences_split:
         max_sent_len = max([len(sent) for sent in original_sentences_split])

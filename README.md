@@ -1,12 +1,12 @@
-#Tagnet
+# Tagnet
 =========
 
 This repository contains code for a recently reimplemented version of the neural network supertagger described in the ACL 2019 paper "Wide-Coverage Neural A* Parsing for Minimalist Grammars", authored by John Torr, Miloš Stanojević, Mark Steedman and Shay Cohen.  The supertagger can be used for any token classification task, including part of speech tagging, named entity tagging, or supertagging.  Please direct any questions about the code in this repo to John Torr (john.torr@cantab.net).
 
-##Installation of the supertagger
+## Installation of the supertagger
 ---------------
 
-###Basic requirements
+### Basic requirements
 
 The supertagger requires python 3 (it was built and tested using python 3.6.5).
 
@@ -16,7 +16,7 @@ You can install python 3 using the following command.
 brew install python
 ```
 
-###Additional dependencies
+### Additional dependencies
 
 The supertagger has several other 3rd party dependencies.  You can easily install them all by  executing the following from a terminal from within the tagnet/ folder.
 

@@ -1,4 +1,4 @@
-import sys, os, pdb
+import sys, os
 from typing import Tuple, List
 
 def main(ccg_folder_path: str) -> None:

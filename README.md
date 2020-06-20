@@ -112,7 +112,9 @@ python test.py --data-path ../data/dummy --model-path ../models/2020_06_20_17_03
 
 You can also use the model to tag data for which you do not have any tags.  Let's say you have some sentences in data/untagged/sentences.words, and you want to save the predictions in data/unseen/predictions.  Then you would execute:
 
+```
 python tag.py --data-path ../data/untagged/sentences.words --dest-path ../data/untagged/predictions --model-path ../models/2020_06_20_17_03_05.pt
+```
 
 Notice that for tag.py, unlike for train.py and test.py, the argument to --data-path includes the actual file name itself, rather than just the path to the folder containing the file.  The reason for this is that you can instruct tag.py to tag sentences contained inside a file with any name, whereas as noted above, for train.py and test.py the file names are fixed in advance.
 

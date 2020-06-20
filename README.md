@@ -82,7 +82,7 @@ To train a model from scratch, and assuming your training data is inside tagnet/
 python train.py --data-path ../data/dummy
 ```
 
-You can edit the hyper parameters of the model by editing the file tagnet/supertagger/config.py.  You can either train a model using the final hidden layer of a [bert model](https://arxiv.org/abs/1810.04805) as word embeddings (the bert model will be frozen, i.e. it's parameters will not be updated as the model learns) or you can start with randomly initialized word embeddings and allow the system to try to learn the embeddings itself.  Bert works best but training will be slower and memory requirements greater.
+You can edit the hyper parameters of the model by editing the file tagnet/supertagger/config.py.  You can either train a model using the final hidden layer of a [bert model](https://arxiv.org/pdf/1810.04805.pdf) as word embeddings (the bert model will be frozen, i.e. it's parameters will not be updated as the model learns) or you can start with randomly initialized word embeddings and allow the system to try to learn the embeddings itself.  Bert works best but training will be slower and memory requirements greater.
 
 To turn bert on, in config.py, either use_bert_uncased or use_bert_cased (but not both) must be set to True.  In addition, you can choose whether to use the bert base or bert large model by setting use_bert_large to True or False.  Setting this to True will not result in bert being used unless either use_bert_uncased or use_bert_cased is also set to True.
 

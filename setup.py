@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="tagnet", # Replace with your own username
-    version="1.0",
+    version="1.0.0",
     author="John Torr",
     author_email="john@cantab.net",
     description="A neural network supertagger",

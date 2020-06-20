@@ -1,8 +1,16 @@
 import sys, os, pdb
+from typing import Tuple, List
 
-def main(ccg_folder_path):
+def main(ccg_folder_path: str) -> None:
+    """
+    Takes as input the top level CCGbank folder path and creates a new folder ccg_supertag_data which contains
+    6 text files, train.words, train.tags, val.words, val.tags, test.words and test.tags.
+    train.words and train.tags contain the words and CCGbank lexical tags for all sentences in CCGbank sections 2-22
+    (the standard training set); val.words and val.tags contains words and tags from section 00; test.words and
+    test.tags correspond to section 23.
+    """
     if "ccg_supertag_data" not in os.listdir(os.getcwd()):
-        ccg_supertags_folder = os.mkdir("ccg_supertag_data")
+        os.mkdir("ccg_supertag_data")
     train_words_file = open(os.path.join("ccg_supertag_data", "train.words"), "w")
     train_tags_file = open(os.path.join("ccg_supertag_data", "train.tags"), "w")
     val_words_file = open(os.path.join("ccg_supertag_data", "val.words"), "w")
@@ -10,7 +18,6 @@ def main(ccg_folder_path):
     test_words_file = open(os.path.join("ccg_supertag_data", "test.words"), "w")
     test_tags_file = open(os.path.join("ccg_supertag_data", "test.tags"), "w")
     unique_ccg_tags = set({})
-    unique_ccg_ptb_tags = set({})
     for folder in os.listdir(ccg_folder_path):
         if folder in ['01', '24']:
             continue
@@ -29,16 +36,13 @@ def main(ccg_folder_path):
                 for line in open(os.path.join(ccg_folder_path,folder,file_name)):
                     if line[:3] =='ID=':
                         continue
-                    words, ccg_supertags, ccg_ptb_supertags = get_words_supertags(line.strip())
+                    words, ccg_supertags = get_words_supertags(line.strip())
                     for supertag in ccg_supertags:
                         unique_ccg_tags.add(supertag)
-                    for supertag in ccg_ptb_supertags:
-                        unique_ccg_ptb_tags.add(supertag)
                     word_file.write(" ".join(words)+"\n")
                     tag_file.write(" ".join(ccg_supertags)+"\n")
 
     print("num ccg supertags: "+str(len(unique_ccg_tags)))
-    print("num ccg ptb supertags: " + str(len(unique_ccg_ptb_tags)))
     train_words_file.close()
     train_tags_file.close()
     val_words_file.close()
@@ -47,7 +51,11 @@ def main(ccg_folder_path):
     test_tags_file.close()
 
 
-def get_words_supertags(line):
+def get_words_supertags(line: str) -> Tuple[List[str], List[str]]:
+    """
+    Takes as input a CCGbank file line and returns two lists of strings, one containing each word in the sentence
+    and the other containing the CCG lexical categories for the words.
+    """
     terminal_open_bracket = False
     terminals = []
     terminal = ""
@@ -63,14 +71,7 @@ def get_words_supertags(line):
             terminal+=char
     words = [terminal.split()[4] for terminal in terminals]
     ccg_supertags = [terminal.split()[1] for terminal in terminals]
-    ccg_ptb_supertags = ["_".join(terminal.split()[1:4]) for terminal in terminals]
-    return words, ccg_supertags, ccg_ptb_supertags
-
-
-
-
-
-
+    return words, ccg_supertags
 
 
 if __name__ == "__main__":

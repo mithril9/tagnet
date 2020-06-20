@@ -1,3 +1,8 @@
+#code for constructing the training, eval and test files from the original CCGbank data.
+
+# WRITTEN BY:
+#   John Torr (john.torr@cantab.net)
+
 import sys, os
 from typing import Tuple, List
 

@@ -1,4 +1,7 @@
-"""Code for testing a saved model"""
+#Code for testing a saved model
+
+# WRITTEN BY:
+#   John Torr (john.torr@cantab.net)
 
 #standard library imports
 import argparse

@@ -1,4 +1,7 @@
-"""Code for tagging unseen sentences, i.e. sentences which are not paired with tags in the data."""
+#Code for tagging unseen sentences, i.e. sentences which are not paired with tags in the data.
+
+# WRITTEN BY:
+#   John Torr (john.torr@cantab.net)
 
 
 #standard library imports

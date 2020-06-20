@@ -1,4 +1,7 @@
-"""hyperparameters for the supertagger"""
+#hyperparameters for the supertagger
+
+# WRITTEN BY:
+#   John Torr (john.torr@cantab.net)
 
 
 #Parameters which are saved and loaded with the model (these are only laoded from this file if training a model from scratch):

@@ -1,4 +1,8 @@
-"""The neural network model.  Contains LSTMs for both words and characters"""
+#The neural network model.  Uses LSTMs for both words and characters.  Optionally uses (frozen) bert word embeddings
+#(final layer) otherwise uses randomly initialized trainable word embeddings.
+
+# WRITTEN BY:
+#   John Torr (john.torr@cantab.net)
 
 #standard library imports
 from typing import List, Optional

@@ -1,4 +1,7 @@
-"""Preprocesses data for the supertagger"""
+#Preprocesses data for the supertagger
+
+# WRITTEN BY:
+#   John Torr (john.torr@cantab.net)
 
 #standard library imports
 import os

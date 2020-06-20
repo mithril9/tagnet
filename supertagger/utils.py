@@ -1,4 +1,7 @@
-"""Useful utility functions"""
+#Useful utility functions
+
+# WRITTEN BY:
+#   John Torr (john.torr@cantab.net)
 
 #standard library imports
 from typing import List, Tuple

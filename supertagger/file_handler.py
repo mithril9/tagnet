@@ -1,4 +1,7 @@
-"""Code for training the model"""
+#Code for training the model
+
+# WRITTEN BY:
+#   John Torr (john.torr@cantab.net)
 
 #standard library imports
 import os

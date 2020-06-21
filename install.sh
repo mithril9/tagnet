@@ -1,10 +1,10 @@
 #!/bin/bash
 
-pip install matplotlib
-pip install nltk
-pip install numpy
-pip install pandas
-pip install sklearn
-pip install torch
-pip install torchtext
-pip install transformers
+pip3 install matplotlib
+pip3 install nltk
+pip3 install numpy
+pip3 install pandas
+pip3 install sklearn
+pip3 install torch
+pip3 install torchtext
+pip3 install transformers

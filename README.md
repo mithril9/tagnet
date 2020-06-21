@@ -72,6 +72,12 @@ Note that the supertagger was tested on CCGbank supertagging and a script is inc
 python getCCGsupertags.py ccg/
 ```
 
+Note that if your computer is set up to use Python 2 by default, you will need use 'python3' instead of just 'python', so that the above line would then be:
+
+```
+python3 getCCGsupertags.py ccg/
+```
+
 This will create a folder named ccg_supertag_data/ which contains all 6 of the required files using the standard test/validation/test split from the literature on CCG parsing and supertagging.
 
 ### Training

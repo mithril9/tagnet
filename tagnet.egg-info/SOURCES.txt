@@ -1,7 +1,15 @@
 README.md
 setup.py
 supertagger/__init__.py
+supertagger/config.py
+supertagger/constants.py
+supertagger/file_handler.py
+supertagger/lstm_model.py
+supertagger/prepare_data.py
+supertagger/tag.py
+supertagger/test.py
 supertagger/train.py
+supertagger/utils.py
 tagnet.egg-info/PKG-INFO
 tagnet.egg-info/SOURCES.txt
 tagnet.egg-info/dependency_links.txt

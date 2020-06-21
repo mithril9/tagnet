@@ -7,7 +7,7 @@ This repository contains code for a recent Pytorch reimplementation of the neura
 
 ### Basic requirements
 
-The supertagger requires python 3 (it was built and tested using python 3.6.5).
+The supertagger requires python 3 (it has been tested on python 3.6.5 and 3.7.3).
 
 You can install python 3 by opening up a terminal window and executing the following command.
 

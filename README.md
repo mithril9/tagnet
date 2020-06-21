@@ -26,14 +26,14 @@ The supertagger has several other dependencies.  You can easily install them all
 Alternatively, if you prefer to install the dependencies separately, execute the following from a terminal window:
 
 ```
-pip install matplotlib
-pip install nltk
-pip install numpy
-pip install pandas
-pip install sklearn
-pip install torch
-pip install torchtext
-pip install transformers
+pip3 install matplotlib
+pip3 install nltk
+pip3 install numpy
+pip3 install pandas
+pip3 install sklearn
+pip3 install torch
+pip3 install torchtext
+pip3 install transformers
 ```
 
 In case there are any future compatibility issues with these dependencies, you can try installing the exact versions of the above that the code in this repo was tested with by executing one or more of the following (note that the install.sh script will just install the most recent version of each dependency):

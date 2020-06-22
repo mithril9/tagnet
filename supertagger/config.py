@@ -9,7 +9,7 @@
 embedding_dim = 128
 char_embedding_dim = 32
 hidden_dim = 128
-char_hidden_dim = 56
+char_hidden_dim = 64
 use_bert_cased = False
 use_bert_uncased = True
 use_bert_large = False

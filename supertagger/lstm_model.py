@@ -107,8 +107,8 @@ class LSTMTagger(nn.Module):
                 sent_lengths: List[int],
                 word_batch_size: int,
                 device: torch.device,
-                attention_masks:torch.Tensor,
-                token_start_idx: List[int]
+                attention_masks: Optional[torch.Tensor],
+                token_start_idx: Optional[List[int]]
                 ) -> torch.Tensor:
         sent_batch_size = sentences.shape[0]
         if self.use_bert:

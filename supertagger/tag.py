@@ -89,7 +89,7 @@ def main(data_path: str, dest_path:str, saved_model_path: str) -> None:
                 subword_lengths = list(map(len, subwords))
                 token_start_idx = [list(np.cumsum([0] + subword_lengths))[1:]]
                 sent_lengths = [len(token_start_idx[0])]
-                attention_masks = torch.tensor([1, 1]+[1 for x in token_start_idx[0]]).unsqueeze(0)
+                attention_masks = torch.tensor([1, 1]+[1 for x in token_start_idx[0]]).unsqueeze(0).to(device)
                 original_sentences_split = [sentence]
             else:
                 attention_masks = None

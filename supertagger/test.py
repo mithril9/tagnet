@@ -81,6 +81,7 @@ def main(data_path: str, saved_model_path: str) -> None:
             if use_bert:
                 sentences_in, attention_masks, token_start_idx, targets, original_sentences = batch
                 sentences_in = sentences_in.to(device)
+                attention_masks = attention_masks.to(device)
                 targets = targets.to(device)
                 max_length = (attention_masks != 0).max(0)[0].nonzero()[-1].item() + 1
                 if max_length < sentences_in.shape[1]:

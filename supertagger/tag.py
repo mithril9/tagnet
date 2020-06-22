@@ -17,6 +17,7 @@ from file_handler import *
 from lstm_model import LSTMTagger
 from prepare_data import *
 from utils import *
+from config import *
 
 
 models_folder = 'models'

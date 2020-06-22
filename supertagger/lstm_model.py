@@ -15,7 +15,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_se
 from transformers import BertModel
 
 #local imports
-from config import data_parallel
+from config import *
 
 
 class LSTMTagger(nn.Module):

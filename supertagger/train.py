@@ -114,6 +114,7 @@ def main(data_path: str, saved_model_path: str) -> None:
     start_epoch = checkpoint_epoch+1
     end_epoch = checkpoint_epoch+num_epochs
     for epoch in range(start_epoch, end_epoch+1):  # again, normally you would NOT do 300 epochs, it is toy data
+        model.train()
         print('===============================')
         print('\n======== Epoch {} / {} ========'.format(epoch, end_epoch))
         batch_num = 0

@@ -17,6 +17,8 @@ from transformers import BertModel
 #local imports
 from config import *
 
+device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_available) else "cpu")
+
 
 class LSTMTagger(nn.Module):
 
@@ -125,7 +127,7 @@ class LSTMTagger(nn.Module):
         else:
             embeds = self.word_embeddings(sentences)
         sent_len = words[0].shape[0]
-        char_final_hiddens = torch.zeros(sent_batch_size, sent_len, char_hidden_dim*2)#, requires_grad=False)
+        char_final_hiddens = torch.zeros(sent_batch_size, sent_len, char_hidden_dim*2).to(device)#, requires_grad=False)
         for sent in range(sent_batch_size):
             self.init_char_hidden(word_batch_size=word_batch_size, device=device)
             char_embeds = self.char_embeddings(words[sent])
@@ -134,10 +136,6 @@ class LSTMTagger(nn.Module):
             char_embeds = pack_padded_sequence(char_embeds, word_lengths, enforce_sorted=False, batch_first=True)
             _, self.char_hidden = self.char_lstm(char_embeds, self.char_hidden)
             char_final_hiddens[sent,:,:] = torch.cat((self.char_hidden[0][0], self.char_hidden[0][1]), dim=1)
-        print("embeds_device:")
-        print(embeds.device)
-        print("char finals:")
-        print(char_final_hiddens.device)
         embeds = torch.cat((embeds, char_final_hiddens), dim=2)
         embeds = pack_padded_sequence(embeds, sent_lengths, enforce_sorted=False, batch_first=True)
         lstm_out, self.hidden = self.lstm(embeds, self.hidden)

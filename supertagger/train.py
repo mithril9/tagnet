@@ -267,6 +267,8 @@ def eval_model(
             batch_num += 1
             if use_bert:
                 sentences_in, attention_masks, token_start_idx, targets, original_sentences = batch
+                sentences_in = sentences_in.to(device)
+                attention_masks = attention_masks.to(device)
                 max_length = (attention_masks != 0).max(0)[0].nonzero()[-1].item() + 1
                 if max_length < sentences_in.shape[1]:
                     sentences_in = sentences_in[:, :max_length]

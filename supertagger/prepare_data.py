@@ -11,6 +11,7 @@ from constants import *
 from typing import List, Tuple, DefaultDict, Union, Optional, Dict
 
 #third party imports
+import nltk
 import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -24,6 +25,7 @@ from transformers import BertTokenizer
 from config import *
 from utils import *
 
+nltk.download('punkt')
 
 createDatasetsReturnType = Union[Tuple[BucketIterator, BucketIterator, Vocab, Vocab, DefaultDict[str, int]],
                                  Tuple[BucketIterator]]

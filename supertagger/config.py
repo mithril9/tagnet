@@ -16,7 +16,7 @@ use_bert_large = True
 
 #Parameters which are not saved (these will always be loaded from this file even when a saved model is loaded)
 
-num_epochs = 40
+num_epochs = 10
 batch_size = 32
 learning_rate = 0.001
 weight_decay = 0

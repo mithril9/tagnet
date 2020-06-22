@@ -86,8 +86,6 @@ class LSTMTagger(nn.Module):
         print("Loading model: "+which_bert+"...")
         device = torch.device("cuda:0" if (torch.cuda.is_available() and use_cuda_if_available) else "cpu")
         bert = BertModel.from_pretrained(which_bert).to(device=torch.device(device))
-        if data_parallel:
-            bert = torch.nn.DataParallel(bert)
         return bert
 
     def init_hidden(self, sent_batch_size: int, device: torch.device) ->  None:

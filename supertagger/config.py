@@ -12,13 +12,12 @@ hidden_dim = 128
 char_hidden_dim = 56
 use_bert_cased = False
 use_bert_uncased = True
-use_bert_large = True
+use_bert_large = False
 
 #Parameters which are not saved (these will always be loaded from this file even when a saved model is loaded)
 
-num_epochs = 10
+num_epochs = 5
 batch_size = 32
 learning_rate = 0.001
 weight_decay = 0
 use_cuda_if_available = True
-data_parallel = False

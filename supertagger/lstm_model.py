@@ -114,8 +114,6 @@ class LSTMTagger(nn.Module):
                 ) -> torch.Tensor:
         sent_batch_size = sentences.shape[0]
         if self.use_bert:
-            print(sentences.device)
-            print(attention_masks.device)
             bert_last_layer = self.bert(sentences, attention_masks)[0]
             bert_token_reprs = []
             #we only use the hidden state representations for the first subword token for each word because we only

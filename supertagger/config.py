@@ -11,8 +11,8 @@ char_embedding_dim = 32
 hidden_dim = 128
 char_hidden_dim = 56
 use_bert_cased = False
-use_bert_uncased = False
-use_bert_large =  False
+use_bert_uncased = True
+use_bert_large = True
 
 #Parameters which are not saved (these will always be loaded from this file even when a saved model is loaded)
 

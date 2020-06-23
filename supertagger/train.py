@@ -83,6 +83,7 @@ def main(data_path: str, saved_model_path: str) -> None:
         use_bert_large=use_bert_large
     )
     loss_function = CrossEntropyLoss(ignore_index=tag_to_ix['<pad>'])
+    model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     if models_folder not in os.listdir(".."):
         os.mkdir(os.path.join("..", models_folder))
@@ -108,7 +109,6 @@ def main(data_path: str, saved_model_path: str) -> None:
         lowest_av_eval_loss = 999999
         model_file_name = strftime("%Y_%m_%d_%H_%M_%S.pt")
     #torch.autograd.set_detect_anomaly(True)
-    model.to(device)
     print("training..\n")
     model.train()
     start_epoch = checkpoint_epoch+1

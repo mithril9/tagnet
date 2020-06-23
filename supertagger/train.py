@@ -344,7 +344,7 @@ def print_results(
     else:
         print("\nBest eval results were obtained on epoch {} and are shown below:\n".format(epoch))
     print("Eval accuracy: {:.2f}%".format(accuracy * 100))
-    print("Average Eval loss: {}".format(str(round(av_eval_loss,4)))
+    print("Average Eval loss: {}".format(str(round(av_eval_loss,4))))
     print("Micro Precision: {}".format(micro_precision))
     print("Micro Recall: {}".format(micro_recall))
     print("Micro F1: {}".format(micro_f1))

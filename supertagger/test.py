@@ -122,7 +122,7 @@ def main(data_path: str, saved_model_path: str) -> None:
             mask = targets != 1
             test_loss = loss_function(tag_logits, targets)
             test_loss /= mask.float().sum()
-            test_losses.append(round(test_loss.item(), 4))
+            test_losses.append(test_loss.item())
             pred = categoriesFromOutput(tag_logits, ix_to_tag)
             y_pred += pred
         av_test_losses.append(sum(test_losses)/len(test_losses))
@@ -132,7 +132,7 @@ def main(data_path: str, saved_model_path: str) -> None:
         weighted_macro_precision, weighted_macro_recall, weighted_macro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted')
         av_test_loss = sum(test_losses)/len(test_losses)
         print("Test accuracy: {:.2f}%".format(accuracy*100))
-        print("Average Test loss: {}".format(str(av_test_loss)))
+        print("Average Test loss: {}".format(str(round(av_test_loss,4))))
         print("Micro Precision: {}".format(micro_precision))
         print("Micro Recall: {}".format(micro_recall))
         print("Micro F1: {}".format(micro_f1))

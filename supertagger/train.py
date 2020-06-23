@@ -123,7 +123,7 @@ def main(data_path: str, saved_model_path: str) -> None:
             batch_num += 1
             if batch_num % 20 == 0 or batch_num == 1:
                 if batch_num != 1:
-                    print("\nAverage Training loss for epoch {} at end of batch {}: {}".format(epoch, str(batch_num-1),sum(train_losses)/len(train_losses)))
+                    print("\nAverage Training loss for epoch {} at end of batch {}: {}".format(epoch, str(batch_num-1),round(sum(train_losses)/len(train_losses),4)))
                 print('\n======== at batch {} / {} ========'.format(batch_num, len(train_iter)))
             model.zero_grad()
             if use_bert:
@@ -169,7 +169,7 @@ def main(data_path: str, saved_model_path: str) -> None:
             mask = targets != 1
             loss = loss_function(tag_logits, targets)
             loss /= mask.float().sum()
-            train_losses.append(round(loss.item(), 4))
+            train_losses.append(loss.item())
             loss.backward()
             optimizer.step()
         av_train_losses.append(sum(train_losses) / len(train_losses))
@@ -310,7 +310,7 @@ def eval_model(
             eval_loss = loss_function(tag_logits, targets)
             mask = targets != 1
             eval_loss /= mask.float().sum()
-            eval_losses.append(round(eval_loss.item(), 2))
+            eval_losses.append(eval_loss.item())
             pred = categoriesFromOutput(tag_logits, ix_to_tag)
             y_pred += pred
         av_eval_losses.append(sum(eval_losses) / len(eval_losses))
@@ -344,7 +344,7 @@ def print_results(
     else:
         print("\nBest eval results were obtained on epoch {} and are shown below:\n".format(epoch))
     print("Eval accuracy: {:.2f}%".format(accuracy * 100))
-    print("Average Eval loss: {}".format(str(av_eval_loss)))
+    print("Average Eval loss: {}".format(str(round(av_eval_loss,4)))
     print("Micro Precision: {}".format(micro_precision))
     print("Micro Recall: {}".format(micro_recall))
     print("Micro F1: {}".format(micro_f1))

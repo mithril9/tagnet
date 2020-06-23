@@ -123,7 +123,7 @@ def main(data_path: str, saved_model_path: str) -> None:
             batch_num += 1
             if batch_num % 20 == 0 or batch_num == 1:
                 if batch_num != 1:
-                    print("\nAverage Training loss for epoch {} at end of batch {}: {}".format(epoch, str(batch_num-1),sum(train_losses)/len(train_losses),4))
+                    print("\nAverage Training loss for epoch {} at end of batch {}: {}".format(epoch, str(batch_num-1),sum(train_losses)/len(train_losses)))
                 print('\n======== at batch {} / {} ========'.format(batch_num, len(train_iter)))
             model.zero_grad()
             if use_bert:
@@ -344,7 +344,7 @@ def print_results(
     else:
         print("\nBest eval results were obtained on epoch {} and are shown below:\n".format(epoch))
     print("Eval accuracy: {:.2f}%".format(accuracy * 100))
-    print("Average Eval loss: {}".format(str(av_eval_loss,4)))
+    print("Average Eval loss: {}".format(str(av_eval_loss)))
     print("Micro Precision: {}".format(micro_precision))
     print("Micro Recall: {}".format(micro_recall))
     print("Micro F1: {}".format(micro_f1))

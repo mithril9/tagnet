@@ -132,7 +132,7 @@ def main(data_path: str, saved_model_path: str) -> None:
         weighted_macro_precision, weighted_macro_recall, weighted_macro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted')
         av_test_loss = sum(test_losses)/len(test_losses)
         print("Test accuracy: {:.2f}%".format(accuracy*100))
-        print("Average Test loss: {}".format(str(av_test_loss,4)))
+        print("Average Test loss: {}".format(str(av_test_loss)))
         print("Micro Precision: {}".format(micro_precision))
         print("Micro Recall: {}".format(micro_recall))
         print("Micro F1: {}".format(micro_f1))

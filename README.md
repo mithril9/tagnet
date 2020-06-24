@@ -20,23 +20,10 @@ brew install python
 The supertagger has several other dependencies.  You can easily install them all by  executing the following from a terminal from within the tagnet/ folder.
 
 ```
-./install.sh
+pip3 install -r requirements.txt
 ```
 
 Alternatively, if you prefer to install the dependencies separately, execute the following from a terminal window:
-
-```
-pip3 install matplotlib
-pip3 install nltk
-pip3 install numpy
-pip3 install pandas
-pip3 install sklearn
-pip3 install torch
-pip3 install torchtext
-pip3 install transformers
-```
-
-In case there are any future compatibility issues with these dependencies, you can try installing the exact versions of the above that the code in this repo was tested with by executing one or more of the following (note that the install.sh script will just install the most recent version of each dependency):
 
 ```
 pip3 install matplotlib==3.1.1

@@ -70,6 +70,10 @@ def main(data_path: str, saved_model_path: str) -> None:
         vocab_size = len(word_to_ix)
     tag_to_ix, ix_to_tag = tag_vocab.stoi, tag_vocab.itos
     char_to_ix_original = copy.deepcopy(char_to_ix)
+    word_vocab_original = copy.deepcopy(word_vocab)
+    word_to_ix_original = copy.deepcopy(word_to_ix)
+    ix_to_word_original = copy.deepcopy(ix_to_word)
+    tag_vocab_original = copy.deepcopy(tag_vocab)
     model = LSTMTagger(
         embedding_dim=embedding_dim,
         hidden_dim=hidden_dim,
@@ -208,10 +212,10 @@ def main(data_path: str, saved_model_path: str) -> None:
                 av_train_losses=av_train_losses,
                 av_eval_losses=av_eval_losses,
                 model_file_name=model_file_name,
-                word_to_ix=word_to_ix,
-                ix_to_word=ix_to_word,
-                word_vocab=word_vocab,
-                tag_vocab=tag_vocab,
+                word_to_ix=word_to_ix_original,
+                ix_to_word=ix_to_word_original,
+                word_vocab=word_vocab_original,
+                tag_vocab=tag_vocab_original,
                 char_to_ix=char_to_ix_original,
                 models_folder=models_folder,
                 embedding_dim=embedding_dim,

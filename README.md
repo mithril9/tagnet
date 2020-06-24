@@ -7,15 +7,25 @@ This repository contains code for a recent Pytorch reimplementation of the neura
 The supertagger achieved 95.09% accuracy when trained with a learning rate of 0.001 for 8 epochs followed by another 3 epochs with a learning rate of 0.0001 using the following other hyperparameters which can be adjusted inside the tagnet/supertagger/config.py file: 
 
 embedding_dim = 128
+
 char_embedding_dim = 32
+
 hidden_dim = 128
+
 char_hidden_dim = 64
+
 use_bert_cased = False
+
 use_bert_uncased = True
+
 use_bert_large = False
+
 batch_size = 64
+
 weight_decay = 0
+
 use_cuda_if_available = True
+
 data_parallel = False
 
 

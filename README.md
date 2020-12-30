@@ -1,6 +1,6 @@
 # Tagnet
 
-This repository contains code for a recent Pytorch reimplementation of the neural network supertagger described in the ACL 2019 paper [Wide-Coverage Neural A* Parsing for Minimalist Grammars](https://www.aclweb.org/anthology/P19-1238.pdf).  The supertagger can be used for any sequential token classification task, including part of speech tagging, named entity tagging, or supertagging.  The supertagger uses both character and word level bi-LSTMs and optionally uses bert word embeddings.  Please direct any questions about the code in this repo to John Torr (john.torr@cantab.net).
+This repository contains code for a recent Pytorch reimplementation of the neural network supertagger described in the ACL 2019 paper [Wide-Coverage Neural A* Parsing for Minimalist Grammars](https://www.aclweb.org/anthology/P19-1238.pdf).  The supertagger can be used for any sequential token classification task, including part of speech tagging, named entity tagging, or supertagging.  The supertagger uses both character and word level bi-LSTMs and optionally uses bert word embeddings.  Please direct questions about the code in this repo to John Torr (john.torr@cantab.net).
 
 ## Performance
 
